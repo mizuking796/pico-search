@@ -4,7 +4,7 @@
   /* ============================================================
      Config
      ============================================================ */
-  var GEMINI_MODEL = 'gemini-2.0-flash-lite';
+  var GEMINI_MODEL = 'gemini-1.5-flash';
   var GEMINI_BASE  = 'https://generativelanguage.googleapis.com/v1beta';
   var PUBMED_BASE  = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
   var MAX_RESULTS  = 20;
