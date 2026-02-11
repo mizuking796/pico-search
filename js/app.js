@@ -1348,19 +1348,6 @@
     html += '</div>';
     html += '</div>';
 
-    // Proxy
-    html += '<div class="settings-section">';
-    html += '<h3>プロキシURL（オプション）</h3>';
-    html += '<p class="desc">Gemini APIへの直接接続がCORSエラーになる場合、Cloudflare WorkerのURLを設定してください。</p>';
-    html += '<div class="form-group">';
-    html += '<label for="settings-proxy">プロキシURL</label>';
-    html += '<input type="url" id="settings-proxy" value="'
-      + escapeAttr(workerUrl)
-      + '" placeholder="https://pico-proxy.xxx.workers.dev" autocomplete="off">';
-    html += '</div>';
-    html += '<button id="save-proxy-btn" class="btn-secondary">保存</button>';
-    html += '</div>';
-
     // Search Filters
     html += '<div class="settings-section">';
     html += '<h3>検索フィルタ</h3>';
@@ -1402,6 +1389,19 @@
     html += '</select></div>';
 
     html += '<button id="save-filters-btn" class="btn-secondary">フィルタを保存</button>';
+    html += '</div>';
+
+    // Proxy
+    html += '<div class="settings-section">';
+    html += '<h3>プロキシURL（オプション）</h3>';
+    html += '<p class="desc">Gemini APIへの直接接続がCORSエラーになる場合、Cloudflare WorkerのURLを設定してください。</p>';
+    html += '<div class="form-group">';
+    html += '<label for="settings-proxy">プロキシURL</label>';
+    html += '<input type="url" id="settings-proxy" value="'
+      + escapeAttr(workerUrl)
+      + '" placeholder="https://pico-proxy.xxx.workers.dev" autocomplete="off">';
+    html += '</div>';
+    html += '<button id="save-proxy-btn" class="btn-secondary">保存</button>';
     html += '</div>';
 
     // Terms & consent status
