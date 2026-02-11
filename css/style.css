@@ -173,6 +173,21 @@ a:hover { text-decoration: underline; }
   transition: background 0.2s;
 }
 .btn-link:hover { background: #E0F5F1; text-decoration: none; }
+.validate-warn {
+  background: #FFF3E0;
+  border: 1px solid #FFB74D;
+  border-radius: 10px;
+  padding: 0.85rem;
+  margin-top: 0.75rem;
+  text-align: left;
+}
+.validate-warn p {
+  font-size: 0.85rem;
+  color: #5D4037;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+.validate-warn .btn-secondary { margin-top: 0.25rem; }
 
 /* --- Form Elements --- */
 .form-group {

@@ -149,21 +149,17 @@
     });
   }
 
+  // Returns: {ok:true} | {ok:false, reason:'invalid_key'|'network'}
   function validateApiKey(key) {
-    var url = (workerUrl || GEMINI_BASE) + '/models/' + GEMINI_MODEL
-      + ':generateContent?key=' + encodeURIComponent(key);
-    return fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: 'test' }] }],
-        generationConfig: { maxOutputTokens: 1 }
+    var url = (workerUrl || GEMINI_BASE) + '/models?key=' + encodeURIComponent(key);
+    return fetch(url)
+      .then(function (res) {
+        if (res.ok) return { ok: true };
+        return { ok: false, reason: 'invalid_key' };
       })
-    }).then(function (res) {
-      return res.ok;
-    }).catch(function () {
-      return false;
-    });
+      .catch(function () {
+        return { ok: false, reason: 'network' };
+      });
   }
 
   /* ============================================================
@@ -462,23 +458,41 @@
     html += '</div>';
 
     html += '<button id="save-key-btn" class="btn-primary">保存して始める</button>';
+    html += '<div id="save-skip-area"></div>';
     html += '<p class="note">APIキーはこの端末にのみ保存されます。サーバーには送信されません。</p>';
     html += '</div>';
 
     app.innerHTML = html;
 
     var input = document.getElementById('setup-key');
+
+    function saveKeyAndGo(key) {
+      apiKey = key;
+      localStorage.setItem('pico_api_key', key);
+      showToast('APIキーを保存しました', 'success');
+      navigate('question');
+    }
+
     document.getElementById('save-key-btn').addEventListener('click', function () {
       var key = input.value.trim();
       if (!key) { showToast('APIキーを入力してください', 'error'); return; }
       showLoading('APIキーを検証中...');
-      validateApiKey(key).then(function (ok) {
+      validateApiKey(key).then(function (result) {
         hideLoading();
-        if (ok) {
-          apiKey = key;
-          localStorage.setItem('pico_api_key', key);
-          showToast('APIキーを保存しました', 'success');
-          navigate('question');
+        if (result.ok) {
+          saveKeyAndGo(key);
+        } else if (result.reason === 'network') {
+          // CORS or network error — show skip option
+          var area = document.getElementById('save-skip-area');
+          area.innerHTML =
+            '<div class="validate-warn">'
+            + '<p>APIキーの検証に失敗しました（ネットワークエラー）。</p>'
+            + '<p>キーが正しければ、検証をスキップして保存できます。</p>'
+            + '<button id="skip-save-btn" class="btn-secondary">検証をスキップして保存</button>'
+            + '</div>';
+          document.getElementById('skip-save-btn').addEventListener('click', function () {
+            saveKeyAndGo(key);
+          });
         } else {
           showToast('APIキーが無効です。確認してください。', 'error');
         }
@@ -823,17 +837,9 @@
     document.getElementById('update-key-btn').addEventListener('click', function () {
       var newKey = document.getElementById('settings-key').value.trim();
       if (!newKey) { showToast('APIキーを入力してください', 'error'); return; }
-      showLoading('APIキーを検証中...');
-      validateApiKey(newKey).then(function (ok) {
-        hideLoading();
-        if (ok) {
-          apiKey = newKey;
-          localStorage.setItem('pico_api_key', newKey);
-          showToast('APIキーを更新しました', 'success');
-        } else {
-          showToast('APIキーが無効です', 'error');
-        }
-      });
+      apiKey = newKey;
+      localStorage.setItem('pico_api_key', newKey);
+      showToast('APIキーを更新しました', 'success');
     });
 
     // Delete key
