@@ -759,6 +759,78 @@ textarea {
   text-decoration: none;
 }
 
+/* --- Consent Screen --- */
+.consent-screen {
+  justify-content: flex-start;
+  align-items: center;
+  text-align: center;
+  padding-top: 1.5rem;
+}
+.consent-box {
+  background: #fff;
+  border: 1px solid #E8E6E3;
+  border-radius: 12px;
+  padding: 1.25rem;
+  text-align: left;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+.consent-box h2 {
+  font-size: 1rem;
+  color: #2D3436;
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+.terms-body {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  margin-bottom: 1rem;
+}
+.terms-body h3 {
+  font-size: 0.85rem;
+  color: #2B8A7E;
+  margin: 1rem 0 0.3rem;
+}
+.terms-body h3:first-child {
+  margin-top: 0;
+}
+.terms-body p {
+  font-size: 0.82rem;
+  color: #4A4A4A;
+  line-height: 1.6;
+  margin-bottom: 0.4rem;
+}
+.terms-important {
+  background: #FFF3E0;
+  border-left: 3px solid #FF9800;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0 8px 8px 0;
+  margin: 0.5rem 0;
+}
+.consent-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid #E8E6E3;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #2D3436;
+  cursor: pointer;
+}
+.consent-check input[type="checkbox"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: #2B8A7E;
+  cursor: pointer;
+}
+.consent-status {
+  font-size: 0.85rem;
+  color: #27AE60;
+  margin-bottom: 0.75rem;
+}
+
 /* --- Quota Badge --- */
 .quota-badge {
   font-size: 0.65rem;

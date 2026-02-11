@@ -51,7 +51,7 @@
   /* ============================================================
      State
      ============================================================ */
-  var screen        = 'setup';   // setup | question | pico | results | settings
+  var screen        = 'consent'; // consent | setup | question | pico | results | settings
   var apiKey        = '';
   var workerUrl     = '';
   var questionText  = '';
@@ -79,7 +79,12 @@
   function init() {
     apiKey    = localStorage.getItem('pico_api_key')    || '';
     workerUrl = localStorage.getItem('pico_worker_url') || '';
-    if (apiKey) screen = 'question';
+    var consent = localStorage.getItem('pico_consent');
+    if (consent) {
+      screen = apiKey ? 'question' : 'setup';
+    } else {
+      screen = 'consent';
+    }
     render();
   }
 
@@ -88,6 +93,7 @@
      ============================================================ */
   function render() {
     switch (screen) {
+      case 'consent':  renderConsent();    break;
       case 'setup':    renderSetup();      break;
       case 'question': renderQuestion();   break;
       case 'pico':     renderPicoEditor(); break;
@@ -647,6 +653,87 @@
   }
 
   /* ============================================================
+     Render: Consent Screen
+     ============================================================ */
+  function renderConsent() {
+    var html = '<div class="screen consent-screen">';
+    html += '<div class="setup-logo">\uD83D\uDD2C</div>';
+    html += '<h1>PICO Search</h1>';
+    html += '<p class="subtitle">臨床疑問をPICO/PECOに分解し<br>PubMed検索・論文要約を行うツール</p>';
+
+    html += '<div class="consent-box">';
+    html += '<h2>利用規約</h2>';
+
+    html += '<div class="terms-body">';
+
+    html += '<h3>1. サービスの概要</h3>';
+    html += '<p>本サービス「PICO Search」は、特定非営利活動法人リハビリコラボレーション（以下「開発者」）が提供する、臨床疑問の文献検索支援ツール（デモンストレーション版）です。</p>';
+
+    html += '<h3>2. AI（大規模言語モデル）の利用について</h3>';
+    html += '<p>本サービスではGoogle Gemini API（大規模言語モデル）を使用しています。'
+      + 'AIの出力は<b>必ずしも正確ではなく、誤りや幻覚（ハルシネーション）を含む可能性</b>があります。</p>';
+    html += '<p class="terms-important">AIが生成した内容は必ず人間（専門家）が確認・検証してください。'
+      + '本サービスの出力をそのまま臨床判断や医療行為の根拠として使用しないでください。</p>';
+
+    html += '<h3>3. 免責事項</h3>';
+    html += '<p>開発者は、本サービスの利用により生じたいかなる損害についても責任を負いません。'
+      + '本サービスは医学的助言を提供するものではなく、実際の医療判断は必ず医療専門家にご相談ください。</p>';
+    html += '<p>本サービスの情報の正確性、完全性、最新性について保証するものではありません。'
+      + 'PubMedの検索結果および論文要約は参考情報としてご利用ください。</p>';
+
+    html += '<h3>4. APIキー・個人情報の取り扱い</h3>';
+    html += '<p>お客様が入力するGemini APIキーは、お使いの端末（ブラウザのローカルストレージ）にのみ保存されます。'
+      + '開発者のサーバーに送信・保存されることはありません。</p>';
+    html += '<p>本サービスはGoogle Gemini APIおよびPubMed E-utilitiesに対して直接通信を行います。'
+      + '各サービスのプライバシーポリシーもあわせてご確認ください。</p>';
+
+    html += '<h3>5. 知的財産権</h3>';
+    html += '<p>PubMedに収録されている論文の著作権は各著者・出版社に帰属します。'
+      + '本サービスは論文メタデータおよびアブストラクトの閲覧を補助するものであり、論文の全文を提供するものではありません。</p>';
+
+    html += '<h3>6. サービスの変更・停止</h3>';
+    html += '<p>開発者は、事前の通知なくサービスの内容変更、提供の中断または終了を行う場合があります。</p>';
+
+    html += '<h3>7. 開発者情報</h3>';
+    html += '<p>特定非営利活動法人リハビリコラボレーション</p>';
+
+    html += '</div>';
+
+    var alreadyConsented = !!localStorage.getItem('pico_consent');
+    if (alreadyConsented) {
+      // Viewing from settings — show back button
+      html += '<button id="consent-back-btn" class="btn-secondary">戻る</button>';
+    } else {
+      // First time — require agreement
+      html += '<label class="consent-check">';
+      html += '<input type="checkbox" id="consent-cb">';
+      html += '<span>上記の利用規約に同意します</span>';
+      html += '</label>';
+      html += '<button id="consent-btn" class="btn-primary" disabled>同意して始める</button>';
+    }
+
+    html += '</div></div>';
+
+    app.innerHTML = html;
+
+    if (alreadyConsented) {
+      document.getElementById('consent-back-btn').addEventListener('click', function () {
+        navigate(prevScreen || 'settings');
+      });
+    } else {
+      var cb = document.getElementById('consent-cb');
+      var btn = document.getElementById('consent-btn');
+      cb.addEventListener('change', function () {
+        btn.disabled = !cb.checked;
+      });
+      btn.addEventListener('click', function () {
+        localStorage.setItem('pico_consent', new Date().toISOString());
+        navigate(apiKey ? 'question' : 'setup');
+      });
+    }
+  }
+
+  /* ============================================================
      Render: Header
      ============================================================ */
   function renderHeader(title, showSettings, showBack) {
@@ -1128,6 +1215,18 @@
     html += '<button id="save-proxy-btn" class="btn-secondary">保存</button>';
     html += '</div>';
 
+    // Terms & consent status
+    html += '<div class="settings-section">';
+    html += '<h3>利用規約</h3>';
+    var consentDate = localStorage.getItem('pico_consent');
+    if (consentDate) {
+      var d = new Date(consentDate);
+      var dateStr = d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate();
+      html += '<p class="consent-status">\u2705 利用規約に同意済み（' + escapeHtml(dateStr) + '）</p>';
+    }
+    html += '<button id="view-terms-btn" class="btn-secondary btn-small">利用規約を表示</button>';
+    html += '</div>';
+
     html += '</div></div>';
 
     app.innerHTML = html;
@@ -1183,6 +1282,12 @@
       }
       showToast('プロキシURLを保存しました', 'success');
     });
+
+    // View terms
+    var termsBtn = document.getElementById('view-terms-btn');
+    if (termsBtn) {
+      termsBtn.addEventListener('click', function () { navigate('consent'); });
+    }
   }
 
   /* ============================================================
