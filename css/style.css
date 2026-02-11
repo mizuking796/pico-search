@@ -150,6 +150,15 @@ a:hover { text-decoration: underline; }
   color: #aaa;
   margin-top: 0.2rem;
 }
+.step-list {
+  padding-left: 1.2rem;
+  margin: 0.3rem 0;
+  font-size: 0.85rem;
+  color: #636E72;
+  line-height: 1.55;
+}
+.step-list li { margin-bottom: 0.25rem; }
+.step-list b { color: #2D3436; }
 .btn-link {
   display: inline-block;
   margin-top: 0.4rem;
