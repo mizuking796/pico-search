@@ -761,11 +761,11 @@ textarea {
 
 /* --- Quota Badge --- */
 .quota-badge {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 600;
   color: #636E72;
   background: #F0FAF8;
-  padding: 0.2rem 0.55rem;
+  padding: 0.15rem 0.5rem;
   border-radius: 10px;
   white-space: nowrap;
 }

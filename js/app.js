@@ -280,8 +280,32 @@
     var el = document.getElementById('quota-badge');
     if (!el) return;
     var remaining = getRemainingQuota();
-    el.textContent = '本日 残り' + remaining + '回';
+    el.textContent = '本日の残りAPIリクエスト回数 ' + remaining;
     el.className = 'quota-badge' + (remaining <= 20 ? ' quota-low' : '');
+  }
+
+  /** Sync local quota from API response headers (if exposed via CORS) */
+  function syncQuotaFromHeaders(headers) {
+    var remaining = headers.get('x-ratelimit-remaining-requests')
+      || headers.get('x-ratelimit-remaining')
+      || headers.get('ratelimit-remaining');
+    if (remaining !== null) {
+      var val = parseInt(remaining, 10);
+      if (!isNaN(val) && val >= 0) {
+        var usage = getUsageToday();
+        usage.count = Math.max(0, DAILY_LIMIT - val);
+        localStorage.setItem('pico_usage', JSON.stringify(usage));
+        updateQuotaBadge();
+      }
+    }
+  }
+
+  /** Mark quota as exhausted (called on 429) */
+  function markQuotaExhausted() {
+    var usage = getUsageToday();
+    usage.count = DAILY_LIMIT;
+    localStorage.setItem('pico_usage', JSON.stringify(usage));
+    updateQuotaBadge();
   }
 
   /* ============================================================
@@ -307,6 +331,7 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     }).then(function (res) {
+      syncQuotaFromHeaders(res.headers);
       if (!res.ok) {
         return res.json().catch(function () { return {}; }).then(function (err) {
           var msg = (err.error && err.error.message) || '';
@@ -314,6 +339,7 @@
             throw new Error('APIキーが無効です。設定画面で更新してください。');
           }
           if (res.status === 429 || /quota/i.test(msg)) {
+            markQuotaExhausted();
             throw new Error(
               '無料枠の利用上限に達しました。しばらく待ってから再度お試しください。'
               + '（詳細: ai.google.dev/gemini-api/docs/rate-limits）'
