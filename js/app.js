@@ -9,6 +9,59 @@
   var PUBMED_BASE  = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
   var MAX_RESULTS  = 20;
 
+  var TRIVIA = [
+    'PubMedには3,700万件以上の論文が収録されています',
+    '"PICO"の概念は1995年にRichardsonらが提唱しました',
+    'MeSH用語は約30,000語が登録されています',
+    '世界で最も引用された医学論文はLowryのタンパク質定量法（1951年）です',
+    'コクランレビューは最も信頼性の高いエビデンスの一つです',
+    'EBMの父と呼ばれるのはDavid Sackett教授です',
+    'PubMedは1996年にNLM（米国国立医学図書館）が公開しました',
+    'RCTは1948年のストレプトマイシン試験が最初とされています',
+    'メタ分析は複数の研究結果を統計的に統合する手法です',
+    'インパクトファクターはガーフィールドが1955年に考案しました',
+    'CONSORT声明はRCTの報告の質を向上させるガイドラインです',
+    'NNT（治療必要数）は臨床効果の分かりやすい指標です',
+    'システマティックレビューはエビデンスピラミッドの頂点に位置します',
+    'PEDroスケールはリハビリ分野のRCT質評価に使われます',
+    'CASPチェックリストは論文の批判的吟味に広く用いられます',
+    'GRADE systemは推奨の強さとエビデンスの質を評価します',
+    'フォレストプロットはメタ分析の結果を視覚化するグラフです',
+    'ファンネルプロットは出版バイアスの検出に用いられます'
+  ];
+
+  var HIGH_IMPACT_JOURNALS = {
+    'N Engl J Med': 'NEJM',
+    'Lancet': 'Lancet',
+    'The Lancet': 'Lancet',
+    'JAMA': 'JAMA',
+    'BMJ': 'BMJ',
+    'Ann Intern Med': 'AIM',
+    'Cochrane Database Syst Rev': 'Cochrane',
+    'Phys Ther': 'PT',
+    'Physical Therapy': 'PT',
+    'Stroke': 'Stroke',
+    'Arch Phys Med Rehabil': 'APMR',
+    'Archives of Physical Medicine and Rehabilitation': 'APMR',
+    'J Physiother': 'JPhysio',
+    'PLoS Med': 'PLoS Med',
+    'Nature Medicine': 'Nat Med',
+    'Nat Med': 'Nat Med'
+  };
+
+  var STUDY_TYPE_PATTERNS = [
+    { pattern: /meta[\s-]?analy/i, label: '\u30E1\u30BF\u5206\u6790' },
+    { pattern: /systematic[\s-]?review/i, label: '\u7CFB\u7D71\u7684\u30EC\u30D3\u30E5\u30FC' },
+    { pattern: /randomi[sz]ed|\bRCT\b/i, label: 'RCT' },
+    { pattern: /cohort/i, label: '\u30B3\u30DB\u30FC\u30C8' },
+    { pattern: /case[\s-]?control/i, label: '\u75C7\u4F8B\u5BFE\u7167' },
+    { pattern: /cross[\s-]?sectional/i, label: '\u6A2A\u65AD' },
+    { pattern: /case[\s-]?report|case[\s-]?series/i, label: '\u75C7\u4F8B\u5831\u544A' },
+    { pattern: /clinical[\s-]?trial/i, label: '\u81E8\u5E8A\u8A66\u9A13' },
+    { pattern: /pilot[\s-]?study/i, label: '\u30D1\u30A4\u30ED\u30C3\u30C8' },
+    { pattern: /review/i, label: '\u30EC\u30D3\u30E5\u30FC' }
+  ];
+
   /* ============================================================
      State
      ============================================================ */
@@ -72,20 +125,117 @@
     return d.innerHTML;
   }
 
-  function showLoading(msg) {
-    var el = document.getElementById('loading-overlay');
-    if (el) el.remove();
+  /* -- Progress overlay -- */
+  var _progressInterval = null;
+  var _progressSteps = [];
+  var _progressWeights = [];
+
+  function showProgress(steps, weights) {
+    hideProgress();
+    _progressSteps = steps;
+    _progressWeights = weights || steps.map(function () { return 1; });
     var div = document.createElement('div');
     div.id = 'loading-overlay';
     div.className = 'loading-overlay';
-    div.innerHTML = '<div class="spinner"></div><div class="loading-text">'
-      + escapeHtml(msg || '処理中...') + '</div>';
+
+    var html = '<div class="progress-container">';
+    html += '<div class="progress-steps">';
+    for (var i = 0; i < steps.length; i++) {
+      html += '<div class="progress-step" data-step="' + i + '">'
+        + '<span class="step-icon pending">\u25CB</span>'
+        + '<span class="step-label">' + escapeHtml(steps[i]) + '</span></div>';
+    }
+    html += '</div>';
+    html += '<div class="progress-bar-wrap">'
+      + '<div class="progress-bar-fill" style="width:0%"></div></div>';
+    html += '<div class="progress-percent">0%</div>';
+    html += '<div class="progress-trivia">' + escapeHtml(TRIVIA[Math.floor(Math.random() * TRIVIA.length)]) + '</div>';
+    html += '</div>';
+    div.innerHTML = html;
     document.body.appendChild(div);
+
+    // Rotate trivia every 5s
+    var triviaEl = div.querySelector('.progress-trivia');
+    _progressInterval = setInterval(function () {
+      triviaEl.style.opacity = '0';
+      setTimeout(function () {
+        triviaEl.textContent = TRIVIA[Math.floor(Math.random() * TRIVIA.length)];
+        triviaEl.style.opacity = '1';
+      }, 300);
+    }, 5000);
+
+    // Activate first step
+    updateProgress(0);
   }
 
-  function hideLoading() {
+  function updateProgress(stepIdx) {
+    var overlay = document.getElementById('loading-overlay');
+    if (!overlay) return;
+    var stepEls = overlay.querySelectorAll('.progress-step');
+    var totalWeight = 0;
+    var doneWeight = 0;
+    for (var i = 0; i < _progressWeights.length; i++) totalWeight += _progressWeights[i];
+    for (var j = 0; j < stepEls.length; j++) {
+      var icon = stepEls[j].querySelector('.step-icon');
+      if (j < stepIdx) {
+        icon.className = 'step-icon done';
+        icon.textContent = '\u2713';
+        doneWeight += _progressWeights[j];
+      } else if (j === stepIdx) {
+        icon.className = 'step-icon active';
+        icon.innerHTML = '<span class="inline-spinner"></span>';
+        doneWeight += _progressWeights[j] * 0.15; // partial
+      } else {
+        icon.className = 'step-icon pending';
+        icon.textContent = '\u25CB';
+      }
+    }
+    var pct = Math.round((doneWeight / totalWeight) * 100);
+    var fill = overlay.querySelector('.progress-bar-fill');
+    var pctEl = overlay.querySelector('.progress-percent');
+    if (fill) fill.style.width = pct + '%';
+    if (pctEl) pctEl.textContent = pct + '%';
+  }
+
+  function completeProgress() {
+    var overlay = document.getElementById('loading-overlay');
+    if (!overlay) return;
+    var stepEls = overlay.querySelectorAll('.progress-step');
+    for (var j = 0; j < stepEls.length; j++) {
+      var icon = stepEls[j].querySelector('.step-icon');
+      icon.className = 'step-icon done';
+      icon.textContent = '\u2713';
+    }
+    var fill = overlay.querySelector('.progress-bar-fill');
+    var pctEl = overlay.querySelector('.progress-percent');
+    if (fill) fill.style.width = '100%';
+    if (pctEl) pctEl.textContent = '100%';
+  }
+
+  function hideProgress() {
+    if (_progressInterval) { clearInterval(_progressInterval); _progressInterval = null; }
     var el = document.getElementById('loading-overlay');
     if (el) el.remove();
+  }
+
+  /* -- Legacy compat -- */
+  function showLoading(msg) {
+    showProgress([msg || '処理中...'], [1]);
+  }
+  function hideLoading() { hideProgress(); }
+
+  function detectStudyType(title) {
+    for (var i = 0; i < STUDY_TYPE_PATTERNS.length; i++) {
+      if (STUDY_TYPE_PATTERNS[i].pattern.test(title)) return STUDY_TYPE_PATTERNS[i].label;
+    }
+    return null;
+  }
+
+  function getJournalBadge(source) {
+    for (var key in HIGH_IMPACT_JOURNALS) {
+      if (source && source.indexOf(key) !== -1) return HIGH_IMPACT_JOURNALS[key];
+    }
+    return null;
   }
 
   var toastTimer = null;
@@ -241,7 +391,10 @@
      Business Logic
      ============================================================ */
   function analyzePico(question) {
-    showLoading('PICO/PECOを分析中...');
+    showProgress(
+      ['AIが臨床疑問を分析中...', 'PICO/PECOに分解中...'],
+      [50, 50]
+    );
     var prompt =
       'あなたは医学文献検索の専門家です。以下の臨床疑問をPICO/PECOフレームワークに分解し、PubMed検索クエリを生成してください。\n\n'
       + '臨床疑問：' + question + '\n\n'
@@ -267,7 +420,7 @@
     };
 
     callGemini(prompt, schema).then(function (text) {
-      hideLoading();
+      updateProgress(1);
       try {
         picoData = JSON.parse(text);
       } catch (e) {
@@ -276,22 +429,28 @@
           mesh_terms: [], search_query: text
         };
       }
-      navigate('pico');
+      completeProgress();
+      setTimeout(function () { hideProgress(); navigate('pico'); }, 400);
     }).catch(function (err) {
-      hideLoading();
+      hideProgress();
       showToast(err.message, 'error');
     });
   }
 
   function runPubMedSearch(query) {
-    showLoading('PubMedを検索中...');
+    showProgress(
+      ['PubMedを検索中...', '論文情報を取得中...'],
+      [40, 60]
+    );
     overallSummary = '';
+    _papersWithAbstract = [];
     searchPubMed(query).then(function (list) {
-      hideLoading();
+      updateProgress(1);
       papers = list;
-      navigate('results');
+      completeProgress();
+      setTimeout(function () { hideProgress(); navigate('results'); }, 400);
     }).catch(function (err) {
-      hideLoading();
+      hideProgress();
       showToast('PubMed検索エラー: ' + err.message, 'error');
     });
   }
@@ -343,8 +502,13 @@
     }
   }
 
+  var _papersWithAbstract = [];
+
   function summarizeAll() {
-    showLoading('全論文を横断的に要約中...');
+    showProgress(
+      ['アブストラクトを取得中...', 'AIが横断的に分析中...'],
+      [30, 70]
+    );
     var pmidsToFetch = [];
     for (var i = 0; i < papers.length; i++) {
       if (!papers[i].abstract) pmidsToFetch.push(papers[i].pmid);
@@ -360,30 +524,33 @@
           if (papers[j].pmid === pmid) papers[j].abstract = abstracts[pmid];
         }
       }
-      var papersWithAbstract = papers.filter(function (p) { return p.abstract; });
-      if (papersWithAbstract.length === 0) {
-        hideLoading();
+      updateProgress(1);
+      _papersWithAbstract = papers.filter(function (p) { return p.abstract; });
+      if (_papersWithAbstract.length === 0) {
+        hideProgress();
         showToast('アブストラクトのある論文が見つかりませんでした。', 'error');
         return;
       }
-      var parts = papersWithAbstract.map(function (p, i) {
-        return '【論文' + (i + 1) + '】 ' + p.title + '\n' + p.abstract;
+      var parts = _papersWithAbstract.map(function (p, i) {
+        return '[' + (i + 1) + '] ' + p.title + '\n' + p.abstract;
       });
       var prompt =
-        '以下の' + papersWithAbstract.length + '件の医学論文のアブストラクトを横断的に日本語で要約してください。\n'
+        '以下の' + _papersWithAbstract.length + '件の医学論文のアブストラクトを横断的に日本語で要約してください。\n'
         + '医学教育を十分に積んでいない医療従事者にも理解できるよう記述してください。\n\n'
         + parts.join('\n\n') + '\n\n'
         + '以下の点を含めてください：\n'
         + '- 共通する知見\n- 研究間の相違点\n'
-        + '- エビデンスの全体的な傾向\n- 臨床実践への示唆';
+        + '- エビデンスの全体的な傾向\n- 臨床実践への示唆\n\n'
+        + '重要：本文中で根拠となる論文を [1][2] のように番号で引用してください。'
+        + '例えば「〜という結果が報告されている[1][3]」のように記述します。';
 
       return callGemini(prompt).then(function (text) {
-        hideLoading();
+        completeProgress();
         overallSummary = text;
-        renderOverallSummary();
+        setTimeout(function () { hideProgress(); renderOverallSummary(); }, 400);
       });
     }).catch(function (err) {
-      hideLoading();
+      hideProgress();
       showToast('横断要約エラー: ' + err.message, 'error');
     });
   }
@@ -734,17 +901,34 @@
 
   function buildPaperCardHtml(idx) {
     var p = papers[idx];
-    var html = '<div class="paper-card" data-idx="' + idx + '">';
-    html += '<div class="paper-title"><a href="https://pubmed.ncbi.nlm.nih.gov/'
+    var html = '<div class="paper-card" data-idx="' + idx + '" id="paper-' + idx + '">';
+
+    // Title with paper number
+    html += '<div class="paper-title">';
+    html += '<span class="paper-number">[' + (idx + 1) + ']</span>';
+    html += '<a href="https://pubmed.ncbi.nlm.nih.gov/'
       + escapeHtml(p.pmid) + '/" target="_blank" rel="noopener">'
       + escapeHtml(p.title) + '</a></div>';
+
+    // Study type badge
+    var studyType = detectStudyType(p.title);
+    if (studyType) {
+      html += '<div><span class="study-type-badge">' + escapeHtml(studyType) + '</span></div>';
+    }
+
+    // Meta with journal badge
     html += '<div class="paper-meta">';
     var authorsStr = p.authors.length > 3
       ? p.authors.slice(0, 3).join(', ') + ' et al.'
       : p.authors.join(', ');
     html += escapeHtml(authorsStr) + '<br>';
     html += escapeHtml(p.source) + ' (' + escapeHtml(p.year) + ')';
+    var badge = getJournalBadge(p.source);
+    if (badge) {
+      html += '<span class="journal-badge">' + escapeHtml(badge) + '</span>';
+    }
     html += '</div>';
+
     html += '<div class="paper-actions">';
     if (p.summary) {
       html += '<button class="btn-secondary btn-small btn-summarize" disabled>要約済み</button>';
@@ -775,10 +959,30 @@
   function renderOverallSummary() {
     var area = document.getElementById('overall-summary-area');
     if (!area) return;
+
+    // Escape first, then convert [N] to citation links
+    var bodyHtml = escapeHtml(overallSummary);
+    // Convert \n to <br>
+    bodyHtml = bodyHtml.replace(/\n/g, '<br>');
+    // Replace [N] with clickable links — map to _papersWithAbstract
+    bodyHtml = bodyHtml.replace(/\[(\d+)\]/g, function (match, num) {
+      var idx = parseInt(num, 10) - 1;
+      if (idx >= 0 && idx < _papersWithAbstract.length) {
+        var p = _papersWithAbstract[idx];
+        // Find real index in papers array
+        var realIdx = papers.indexOf(p);
+        return '<a class="cite-ref" href="https://pubmed.ncbi.nlm.nih.gov/'
+          + escapeHtml(p.pmid) + '/" target="_blank" rel="noopener" '
+          + 'title="' + escapeHtml(p.title) + '"'
+          + (realIdx >= 0 ? ' data-paper="' + realIdx + '"' : '')
+          + '>[' + num + ']</a>';
+      }
+      return match;
+    });
+
     area.innerHTML = '<div class="overall-summary">'
       + '<h3>横断的要約</h3>'
-      + '<div class="overall-summary-body">'
-      + escapeHtml(overallSummary) + '</div></div>';
+      + '<div class="overall-summary-body">' + bodyHtml + '</div></div>';
   }
 
   function bindPaperCardEvents() {
