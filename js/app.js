@@ -440,9 +440,10 @@
     html += '<div class="step-title">APIキーをコピー</div>';
     html += '<p class="step-desc">キーの一覧画面が表示されます。</p>';
     html += '<ul class="step-list">';
-    html += '<li>既にキーがある場合（「Default Gemini API Key」など）→ そのキー名を<b>クリック</b>するとコピーできます</li>';
-    html += '<li>キーがない場合 →「<b>APIキーを作成</b>」ボタンを押して新しく作成してください</li>';
+    html += '<li>既にキーがある場合（「Default Gemini API Key」など）→ そのキー名を<b>クリック</b></li>';
+    html += '<li>キーがない場合 →「<b>APIキーを作成</b>」ボタンで新規作成</li>';
     html += '</ul>';
+    html += '<p class="step-desc">「APIキーの詳細」画面が開くので、右下の<b>「キーをコピー」</b>ボタンを押してください。</p>';
     html += '<p class="step-desc">キーは <code>AIzaSy...</code> で始まる長い文字列です。</p>';
     html += '</div></div>';
 
