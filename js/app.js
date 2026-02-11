@@ -280,7 +280,7 @@
     var el = document.getElementById('quota-badge');
     if (!el) return;
     var remaining = getRemainingQuota();
-    el.textContent = 'AI残り ' + remaining + '/' + DAILY_LIMIT;
+    el.textContent = '本日 残り' + remaining + '回';
     el.className = 'quota-badge' + (remaining <= 20 ? ' quota-low' : '');
   }
 
