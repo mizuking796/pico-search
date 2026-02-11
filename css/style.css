@@ -759,6 +759,21 @@ textarea {
   text-decoration: none;
 }
 
+/* --- Quota Badge --- */
+.quota-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #636E72;
+  background: #F0FAF8;
+  padding: 0.2rem 0.55rem;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.quota-low {
+  color: #E74C3C;
+  background: #FDEDEC;
+}
+
 /* --- Responsive --- */
 @media (max-width: 600px) {
   .screen { padding: 0 0.75rem 1.5rem; }

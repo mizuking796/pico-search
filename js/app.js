@@ -243,6 +243,48 @@
   }
 
   /* ============================================================
+     Usage Counter (local tracking, resets at PT midnight = JST 17:00)
+     ============================================================ */
+  var DAILY_LIMIT = 250;
+
+  function getResetDate() {
+    // Current date in Pacific Time (UTC-8 or UTC-7 DST)
+    var now = new Date();
+    var pt = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+    return pt.getFullYear() + '-' + String(pt.getMonth() + 1).padStart(2, '0')
+      + '-' + String(pt.getDate()).padStart(2, '0');
+  }
+
+  function getUsageToday() {
+    var stored = localStorage.getItem('pico_usage');
+    if (!stored) return { date: getResetDate(), count: 0 };
+    try {
+      var data = JSON.parse(stored);
+      if (data.date !== getResetDate()) return { date: getResetDate(), count: 0 };
+      return data;
+    } catch (e) { return { date: getResetDate(), count: 0 }; }
+  }
+
+  function incrementUsage() {
+    var usage = getUsageToday();
+    usage.count++;
+    localStorage.setItem('pico_usage', JSON.stringify(usage));
+    updateQuotaBadge();
+  }
+
+  function getRemainingQuota() {
+    return Math.max(0, DAILY_LIMIT - getUsageToday().count);
+  }
+
+  function updateQuotaBadge() {
+    var el = document.getElementById('quota-badge');
+    if (!el) return;
+    var remaining = getRemainingQuota();
+    el.textContent = 'AI残り ' + remaining + '/' + DAILY_LIMIT;
+    el.className = 'quota-badge' + (remaining <= 20 ? ' quota-low' : '');
+  }
+
+  /* ============================================================
      API: Gemini
      ============================================================ */
   function geminiEndpoint(action) {
@@ -288,6 +330,7 @@
       if (!text) {
         throw new Error('APIから有効な応答がありませんでした。');
       }
+      incrementUsage();
       return text;
     }).catch(function (err) {
       if (err.message === 'Failed to fetch'
@@ -589,6 +632,7 @@
     html += '<span class="header-title">' + escapeHtml(title) + '</span>';
     html += '</div>';
     html += '<div class="header-right">';
+    html += '<span id="quota-badge" class="quota-badge"></span>';
     if (showSettings) {
       html += '<button class="btn-icon btn-settings" title="設定">\u2699</button>';
     }
@@ -751,6 +795,8 @@
     if (settingsBtn) {
       settingsBtn.addEventListener('click', function () { navigate('settings'); });
     }
+
+    updateQuotaBadge();
   }
 
   /* ============================================================
@@ -866,6 +912,8 @@
     if (settingsBtn) {
       settingsBtn.addEventListener('click', function () { navigate('settings'); });
     }
+
+    updateQuotaBadge();
   }
 
   /* ============================================================
@@ -919,6 +967,7 @@
     }
 
     bindPaperCardEvents();
+    updateQuotaBadge();
   }
 
   function buildPaperCardHtml(idx) {
@@ -1093,6 +1142,8 @@
       showToast('APIキーを削除しました', 'success');
       navigate('setup');
     });
+
+    updateQuotaBadge();
 
     // Save proxy
     document.getElementById('save-proxy-btn').addEventListener('click', function () {
