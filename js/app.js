@@ -415,12 +415,40 @@
     html += '<p class="subtitle">臨床疑問をPICO/PECOに分解し<br>PubMed検索・論文要約を行うツール</p>';
 
     html += '<div class="setup-guide">';
-    html += '<h2>APIキーの取得方法</h2>';
-    html += '<ol>';
-    html += '<li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> を開く</li>';
-    html += '<li>「APIキーを作成」をクリック</li>';
-    html += '<li>コピーして下に貼り付け</li>';
-    html += '</ol>';
+    html += '<h2>APIキーの取得方法（無料・3分）</h2>';
+
+    html += '<div class="setup-step">';
+    html += '<div class="step-number">1</div>';
+    html += '<div class="step-body">';
+    html += '<div class="step-title">Google AI Studio を開く</div>';
+    html += '<p class="step-desc">下のボタンからGoogle AI Studioを開きます。Googleアカウントでログインしてください。</p>';
+    html += '<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" class="btn-link">Google AI Studio を開く &rarr;</a>';
+    html += '</div></div>';
+
+    html += '<div class="setup-step">';
+    html += '<div class="step-number">2</div>';
+    html += '<div class="step-body">';
+    html += '<div class="step-title">利用規約に同意する</div>';
+    html += '<p class="step-desc">初回のみ「Welcome to AI Studio」画面が表示されます。<br>'
+      + '上のチェックボックス（I acknowledge...）に<b>チェック</b>を入れて、右下の<b>「続行」</b>ボタンを押してください。</p>';
+    html += '<p class="step-note">下のチェック（メール受信）は任意です。</p>';
+    html += '</div></div>';
+
+    html += '<div class="setup-step">';
+    html += '<div class="step-number">3</div>';
+    html += '<div class="step-body">';
+    html += '<div class="step-title">APIキーを作成してコピー</div>';
+    html += '<p class="step-desc">「<b>APIキーを作成</b>」ボタンを押すとキーが生成されます。<br>'
+      + '表示された <code>AIzaSy...</code> で始まるキーを<b>コピー</b>してください。</p>';
+    html += '</div></div>';
+
+    html += '<div class="setup-step">';
+    html += '<div class="step-number">4</div>';
+    html += '<div class="step-body">';
+    html += '<div class="step-title">下に貼り付けて保存</div>';
+    html += '<p class="step-desc">コピーしたキーを下の入力欄に貼り付けて「保存して始める」を押してください。</p>';
+    html += '</div></div>';
+
     html += '</div>';
 
     html += '<div class="form-group">';
