@@ -4,7 +4,7 @@
   /* ============================================================
      Config
      ============================================================ */
-  var GEMINI_MODEL = 'gemini-2.0-flash';
+  var GEMINI_MODEL = 'gemini-2.0-flash-lite';
   var GEMINI_BASE  = 'https://generativelanguage.googleapis.com/v1beta';
   var PUBMED_BASE  = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
   var MAX_RESULTS  = 20;
@@ -125,10 +125,17 @@
     }).then(function (res) {
       if (!res.ok) {
         return res.json().catch(function () { return {}; }).then(function (err) {
-          if (res.status === 400 || res.status === 401 || res.status === 403) {
+          var msg = (err.error && err.error.message) || '';
+          if (res.status === 401 || res.status === 403) {
             throw new Error('APIキーが無効です。設定画面で更新してください。');
           }
-          throw new Error((err.error && err.error.message) || 'API error: ' + res.status);
+          if (res.status === 429 || /quota/i.test(msg)) {
+            throw new Error(
+              '無料枠の利用上限に達しました。しばらく待ってから再度お試しください。'
+              + '（詳細: ai.google.dev/gemini-api/docs/rate-limits）'
+            );
+          }
+          throw new Error(msg || 'APIエラー（' + res.status + '）');
         });
       }
       return res.json();
