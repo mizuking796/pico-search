@@ -7,6 +7,7 @@
   var GEMINI_MODEL = 'gemini-2.5-flash';
   var GEMINI_BASE  = 'https://generativelanguage.googleapis.com/v1beta';
   var PUBMED_BASE  = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+  var PUBMED_PARAMS = '&tool=pico-search&email=pico-search@example.com';
   var MAX_RESULTS  = 20;
 
   // TRIVIA is loaded from js/trivia.js (global scope, ~600 items)
@@ -235,6 +236,7 @@
     if (toastTimer) clearTimeout(toastTimer);
     var div = document.createElement('div');
     div.className = 'toast toast-' + (type || 'error');
+    div.setAttribute('role', 'alert');
     div.textContent = msg;
     document.body.appendChild(div);
     toastTimer = setTimeout(function () { div.remove(); }, 3500);
@@ -317,16 +319,22 @@
      ============================================================ */
   function searchPubMed(query) {
     var esearch = PUBMED_BASE + '/esearch.fcgi?db=pubmed&retmode=json&retmax='
-      + MAX_RESULTS + '&sort=relevance&term=' + encodeURIComponent(query);
+      + MAX_RESULTS + '&sort=relevance' + PUBMED_PARAMS + '&term=' + encodeURIComponent(query);
     return fetch(esearch)
-      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        if (!r.ok) throw new Error('PubMed検索エラー（' + r.status + '）');
+        return r.json();
+      })
       .then(function (data) {
         var ids = data.esearchresult && data.esearchresult.idlist;
         if (!ids || ids.length === 0) return [];
-        var esummary = PUBMED_BASE + '/esummary.fcgi?db=pubmed&retmode=json&id='
-          + ids.join(',');
+        var esummary = PUBMED_BASE + '/esummary.fcgi?db=pubmed&retmode=json'
+          + PUBMED_PARAMS + '&id=' + ids.join(',');
         return fetch(esummary)
-          .then(function (r) { return r.json(); })
+          .then(function (r) {
+            if (!r.ok) throw new Error('PubMed詳細取得エラー（' + r.status + '）');
+            return r.json();
+          })
           .then(function (sdata) {
             var result = sdata.result || {};
             var list = [];
@@ -351,10 +359,13 @@
 
   function fetchAbstracts(pmids) {
     if (!pmids || pmids.length === 0) return Promise.resolve({});
-    var efetch = PUBMED_BASE + '/efetch.fcgi?db=pubmed&rettype=abstract&retmode=xml&id='
-      + pmids.join(',');
+    var efetch = PUBMED_BASE + '/efetch.fcgi?db=pubmed&rettype=abstract&retmode=xml'
+      + PUBMED_PARAMS + '&id=' + pmids.join(',');
     return fetch(efetch)
-      .then(function (r) { return r.text(); })
+      .then(function (r) {
+        if (!r.ok) throw new Error('アブストラクト取得エラー（' + r.status + '）');
+        return r.text();
+      })
       .then(function (xml) { return parseAbstractXml(xml); });
   }
 
@@ -384,6 +395,9 @@
      Business Logic
      ============================================================ */
   function analyzePico(question) {
+    papers = [];
+    overallSummary = '';
+    _papersWithAbstract = [];
     showProgress(
       ['AIが臨床疑問を分析中...', 'PICO/PECOに分解中...'],
       [50, 50]
@@ -716,7 +730,7 @@
     var chips = app.querySelectorAll('.chip');
     for (var j = 0; j < chips.length; j++) {
       chips[j].addEventListener('click', function () {
-        textarea.value = examples[parseInt(this.getAttribute('data-idx'))];
+        textarea.value = examples[parseInt(this.getAttribute('data-idx'), 10)];
       });
     }
 
@@ -1050,9 +1064,21 @@
     document.getElementById('update-key-btn').addEventListener('click', function () {
       var newKey = document.getElementById('settings-key').value.trim();
       if (!newKey) { showToast('APIキーを入力してください', 'error'); return; }
-      apiKey = newKey;
-      localStorage.setItem('pico_api_key', newKey);
-      showToast('APIキーを更新しました', 'success');
+      showLoading('APIキーを検証中...');
+      validateApiKey(newKey).then(function (result) {
+        hideLoading();
+        if (result.ok) {
+          apiKey = newKey;
+          localStorage.setItem('pico_api_key', newKey);
+          showToast('APIキーを更新しました', 'success');
+        } else if (result.reason === 'network') {
+          apiKey = newKey;
+          localStorage.setItem('pico_api_key', newKey);
+          showToast('検証できませんでしたが保存しました', 'success');
+        } else {
+          showToast('APIキーが無効です。確認してください。', 'error');
+        }
+      });
     });
 
     // Delete key

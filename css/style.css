@@ -692,22 +692,6 @@ textarea {
   line-height: 1.5;
 }
 
-/* --- Back to Question Link --- */
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-  color: #636E72;
-  margin-bottom: 0.75rem;
-  cursor: pointer;
-  background: none;
-  border: none;
-  font-family: inherit;
-  padding: 0;
-}
-.back-link:hover { color: #2B8A7E; }
-
 /* --- Animations --- */
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(12px); }

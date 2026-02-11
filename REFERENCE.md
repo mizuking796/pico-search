@@ -26,6 +26,7 @@ pico-search/
 ├── index.html           # エントリポイント
 ├── css/style.css        # 外部CSS
 ├── js/app.js            # 全アプリケーションロジック（IIFE）
+├── js/trivia.js         # 医学豆知識600個（プログレス表示用）
 ├── worker/
 │   ├── worker.js        # Cloudflare Worker CORSプロキシ（オプション）
 │   └── README.md        # デプロイ手順
@@ -42,14 +43,14 @@ pico-search/
 
 ## 技術スタック
 - **フロントエンド**: Vanilla JS（IIFE）、外部依存なし
-- **Gemini API**: gemini-2.0-flash、JSON Schema付き構造化出力
+- **Gemini API**: gemini-2.5-flash、JSON Schema付き構造化出力
 - **PubMed**: ESearch→ESummary→EFetch（XML→DOMParser）
 - **CSS**: teal #2B8A7E、Hiragino書体、max-width 600px
 
 ## API仕様
 
 ### Gemini（PICO分解）
-- エンドポイント: `generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`
+- エンドポイント: `generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`
 - 構造化出力: type, p, i_or_e, c, o, mesh_terms, search_query
 
 ### PubMed
