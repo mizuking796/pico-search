@@ -623,6 +623,7 @@
       _papersWithAbstract = papers.filter(function (p) { return p.abstract; });
       if (_papersWithAbstract.length === 0) {
         hideProgress();
+        if (allBtn) allBtn.disabled = false;
         showToast('アブストラクトのある論文が見つかりませんでした。', 'error');
         return;
       }
