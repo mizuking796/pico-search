@@ -635,7 +635,10 @@
         '以下の' + _papersWithAbstract.length + '件の医学論文のアブストラクトを横断的に日本語で要約してください。\n'
         + '医学教育を十分に積んでいない医療従事者にも理解できるよう記述してください。\n\n'
         + parts.join('\n\n') + '\n\n'
-        + '以下の点を含めてください：\n'
+        + '【形式の指示】\n'
+        + '最初に「===ポイント===」という行を書き、続けて5行以内の箇条書き（各行「・」で始める）で要点をまとめてください。\n'
+        + '次に「===本文===」という行を書き、その後に詳細な要約を記述してください。\n\n'
+        + '詳細な要約には以下の点を含めてください：\n'
         + '- 共通する知見\n- 研究間の相違点\n'
         + '- エビデンスの全体的な傾向\n- 臨床実践への示唆\n\n'
         + '重要：本文中で根拠となる論文を [1][2] のように番号で引用してください。'
@@ -1152,17 +1155,8 @@
     }
   }
 
-  function renderOverallSummary() {
-    var area = document.getElementById('overall-summary-area');
-    if (!area) return;
-
-    // Escape first, then convert [N] to citation links
-    var bodyHtml = escapeHtml(overallSummary);
-    // Convert \n to <br>
-    bodyHtml = bodyHtml.replace(/\n/g, '<br>');
-    // Replace [N] with clickable links — map to _papersWithAbstract
-    // [N] maps to papers[N-1] (same numbering as paper cards)
-    bodyHtml = bodyHtml.replace(/\[(\d+)\]/g, function (match, num) {
+  function convertCitations(html) {
+    return html.replace(/\[(\d+)\]/g, function (match, num) {
       var idx = parseInt(num, 10) - 1;
       if (idx >= 0 && idx < papers.length) {
         var p = papers[idx];
@@ -1174,10 +1168,42 @@
       }
       return match;
     });
+  }
+
+  function renderOverallSummary() {
+    var area = document.getElementById('overall-summary-area');
+    if (!area) return;
+
+    var raw = overallSummary;
+    var pointsHtml = '';
+    var mainHtml = '';
+
+    // Parse ===ポイント=== / ===本文=== sections
+    var pointsMatch = raw.match(/={2,}ポイント={2,}\s*\n([\s\S]*?)(?=\n={2,}本文={2,}|$)/);
+    var mainMatch = raw.match(/={2,}本文={2,}\s*\n([\s\S]*)/);
+
+    if (pointsMatch) {
+      var pointsText = escapeHtml(pointsMatch[1].trim());
+      pointsText = pointsText.replace(/\n/g, '<br>');
+      pointsHtml = '<div class="summary-points">'
+        + '<div class="summary-points-title">ポイント</div>'
+        + '<div class="summary-points-body">' + convertCitations(pointsText) + '</div>'
+        + '</div>';
+    }
+
+    if (mainMatch) {
+      mainHtml = escapeHtml(mainMatch[1].trim());
+    } else {
+      // Fallback: no markers found — show entire text
+      mainHtml = escapeHtml(raw);
+    }
+    mainHtml = mainHtml.replace(/\n/g, '<br>');
+    mainHtml = convertCitations(mainHtml);
 
     area.innerHTML = '<div class="overall-summary">'
       + '<h3>横断的要約</h3>'
-      + '<div class="overall-summary-body">' + bodyHtml + '</div></div>';
+      + pointsHtml
+      + '<div class="overall-summary-body">' + mainHtml + '</div></div>';
   }
 
   function bindPaperCardEvents() {
