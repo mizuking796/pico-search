@@ -218,7 +218,8 @@ a:hover { text-decoration: underline; }
 input[type="text"],
 input[type="password"],
 input[type="url"],
-textarea {
+textarea,
+select {
   width: 100%;
   padding: 0.75rem;
   border: 1.5px solid #E8E6E3;
@@ -228,8 +229,17 @@ textarea {
   background: #fff;
   color: #2D3436;
   transition: border-color 0.2s;
+  box-sizing: border-box;
 }
-input:focus, textarea:focus {
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23636E72' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.5rem;
+}
+input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: #2B8A7E;
 }

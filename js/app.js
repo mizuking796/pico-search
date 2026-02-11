@@ -60,6 +60,9 @@
   var overallSummary = '';
   var prevScreen    = '';
 
+  // Search filters (persisted in localStorage)
+  var searchFilters = { dateRange: '', lang: '', studyType: '', species: '' };
+
   var app = document.getElementById('app');
 
   /* ============================================================
@@ -79,6 +82,13 @@
   function init() {
     apiKey    = localStorage.getItem('pico_api_key')    || '';
     workerUrl = localStorage.getItem('pico_worker_url') || '';
+    try {
+      var saved = JSON.parse(localStorage.getItem('pico_filters') || '{}');
+      searchFilters.dateRange = saved.dateRange || '';
+      searchFilters.lang      = saved.lang      || '';
+      searchFilters.studyType = saved.studyType || '';
+      searchFilters.species   = saved.species   || '';
+    } catch (e) { /* ignore */ }
     var consent = localStorage.getItem('pico_consent');
     if (consent) {
       screen = apiKey ? 'question' : 'setup';
@@ -392,9 +402,42 @@
   /* ============================================================
      API: PubMed
      ============================================================ */
+  function buildFilterTerms() {
+    var parts = [];
+    // Date range
+    if (searchFilters.dateRange === '5y') {
+      var y5 = new Date().getFullYear() - 5;
+      parts.push('"' + y5 + '"[PDAT]:"3000"[PDAT]');
+    } else if (searchFilters.dateRange === '10y') {
+      var y10 = new Date().getFullYear() - 10;
+      parts.push('"' + y10 + '"[PDAT]:"3000"[PDAT]');
+    }
+    // Language
+    if (searchFilters.lang === 'en') {
+      parts.push('english[la]');
+    } else if (searchFilters.lang === 'en+ja') {
+      parts.push('(english[la] OR japanese[la])');
+    }
+    // Study type
+    if (searchFilters.studyType === 'rct-ma') {
+      parts.push('("Randomized Controlled Trial"[pt] OR "Meta-Analysis"[pt] OR "Systematic Review"[pt])');
+    } else if (searchFilters.studyType === 'review') {
+      parts.push('("Randomized Controlled Trial"[pt] OR "Meta-Analysis"[pt] OR "Systematic Review"[pt] OR "Review"[pt])');
+    }
+    // Species
+    if (searchFilters.species === 'humans') {
+      parts.push('"Humans"[MeSH]');
+    }
+    return parts;
+  }
+
   function searchPubMed(query) {
+    var filterParts = buildFilterTerms();
+    var fullQuery = filterParts.length > 0
+      ? '(' + query + ') AND ' + filterParts.join(' AND ')
+      : query;
     var esearch = PUBMED_BASE + '/esearch.fcgi?db=pubmed&retmode=json&retmax='
-      + MAX_RESULTS + '&sort=relevance' + PUBMED_PARAMS + '&term=' + encodeURIComponent(query);
+      + MAX_RESULTS + '&sort=relevance' + PUBMED_PARAMS + '&term=' + encodeURIComponent(fullQuery);
     return fetch(esearch)
       .then(function (r) {
         if (!r.ok) throw new Error('PubMed検索エラー（' + r.status + '）');
@@ -1318,6 +1361,49 @@
     html += '<button id="save-proxy-btn" class="btn-secondary">保存</button>';
     html += '</div>';
 
+    // Search Filters
+    html += '<div class="settings-section">';
+    html += '<h3>検索フィルタ</h3>';
+    html += '<p class="desc">PubMed検索時に自動適用されます。</p>';
+
+    // Date range
+    html += '<div class="form-group">';
+    html += '<label for="filter-date">発表時期</label>';
+    html += '<select id="filter-date">';
+    html += '<option value=""'  + (searchFilters.dateRange === '' ? ' selected' : '') + '>指定なし</option>';
+    html += '<option value="5y"'  + (searchFilters.dateRange === '5y' ? ' selected' : '') + '>直近5年</option>';
+    html += '<option value="10y"' + (searchFilters.dateRange === '10y' ? ' selected' : '') + '>直近10年</option>';
+    html += '</select></div>';
+
+    // Language
+    html += '<div class="form-group">';
+    html += '<label for="filter-lang">言語</label>';
+    html += '<select id="filter-lang">';
+    html += '<option value=""'     + (searchFilters.lang === '' ? ' selected' : '') + '>指定なし</option>';
+    html += '<option value="en"'   + (searchFilters.lang === 'en' ? ' selected' : '') + '>英語のみ</option>';
+    html += '<option value="en+ja"' + (searchFilters.lang === 'en+ja' ? ' selected' : '') + '>英語＋日本語</option>';
+    html += '</select></div>';
+
+    // Study type
+    html += '<div class="form-group">';
+    html += '<label for="filter-study">研究タイプ</label>';
+    html += '<select id="filter-study">';
+    html += '<option value=""'      + (searchFilters.studyType === '' ? ' selected' : '') + '>指定なし</option>';
+    html += '<option value="rct-ma"' + (searchFilters.studyType === 'rct-ma' ? ' selected' : '') + '>RCT・メタ分析のみ</option>';
+    html += '<option value="review"' + (searchFilters.studyType === 'review' ? ' selected' : '') + '>レビュー含む</option>';
+    html += '</select></div>';
+
+    // Species
+    html += '<div class="form-group">';
+    html += '<label for="filter-species">対象</label>';
+    html += '<select id="filter-species">';
+    html += '<option value=""'       + (searchFilters.species === '' ? ' selected' : '') + '>指定なし</option>';
+    html += '<option value="humans"' + (searchFilters.species === 'humans' ? ' selected' : '') + '>ヒトのみ</option>';
+    html += '</select></div>';
+
+    html += '<button id="save-filters-btn" class="btn-secondary">フィルタを保存</button>';
+    html += '</div>';
+
     // Terms & consent status
     html += '<div class="settings-section">';
     html += '<h3>利用規約</h3>';
@@ -1384,6 +1470,16 @@
         localStorage.removeItem('pico_worker_url');
       }
       showToast('プロキシURLを保存しました', 'success');
+    });
+
+    // Save filters
+    document.getElementById('save-filters-btn').addEventListener('click', function () {
+      searchFilters.dateRange = document.getElementById('filter-date').value;
+      searchFilters.lang      = document.getElementById('filter-lang').value;
+      searchFilters.studyType = document.getElementById('filter-study').value;
+      searchFilters.species   = document.getElementById('filter-species').value;
+      localStorage.setItem('pico_filters', JSON.stringify(searchFilters));
+      showToast('検索フィルタを保存しました', 'success');
     });
 
     // View terms
