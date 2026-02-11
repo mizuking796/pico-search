@@ -78,6 +78,13 @@ pico-search/
 - `[N]` をPubMedリンク付き `<a class="cite-ref">` に自動変換
 - ホバーで論文タイトル表示（title属性）
 
+### API残りクォータ表示
+- ヘッダー右に「AI残り N/250」バッジをリアルタイム表示
+- localStorage (`pico_usage`) で日別使用回数をトラッキング
+- 太平洋時間0時（日本時間17時）で自動リセット
+- `callGemini()` 成功時に自動カウント
+- 残り20回以下で赤色警告表示
+
 ## セキュリティ対策
 - `escapeHtml()`: innerHTML用（`<>&`エスケープ）
 - `escapeAttr()`: HTML属性用（`<>&"'`エスケープ、XSS防止）
@@ -90,6 +97,7 @@ pico-search/
 ## localStorage キー
 - `pico_api_key`: Gemini APIキー
 - `pico_worker_url`: Cloudflare Worker URL（オプション）
+- `pico_usage`: `{"date":"YYYY-MM-DD","count":N}` — API使用回数（PT日付でリセット）
 
 ## Gemini無料枠の目安（1日250回リセット）
 
