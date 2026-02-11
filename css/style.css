@@ -468,9 +468,31 @@ textarea {
   margin-bottom: 0.35rem;
 }
 .query-section textarea {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-family: "SF Mono", "Menlo", "Consolas", monospace;
   min-height: 80px;
+  line-height: 1.5;
+}
+.btn-regen {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  font-size: 0.8rem;
+  font-family: inherit;
+  color: #2B8A7E;
+  background: #e8f5f3;
+  border: 1px dashed #2B8A7E;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-regen:hover {
+  background: #d0ece8;
+}
+.btn-regen:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* --- Paper Cards --- */

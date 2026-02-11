@@ -487,10 +487,17 @@
       + '臨床疑問：' + question + '\n\n'
       + '回答にあたっての注意：\n'
       + '- 介入研究ならPICO（Intervention）、観察研究ならPECO（Exposure）を選択\n'
-      + '- MeSH用語は英語で、PubMedで有効なものを選択（5〜8個程度）\n'
-      + '- 検索クエリはMeSH用語とフリーテキストを組み合わせ、AND/ORを適切に使用\n'
       + '- 各フィールド（P, I/E, C, O）は日本語で簡潔に記述\n'
-      + '- 検索クエリは英語で記述';
+      + '- MeSH用語は英語で、PubMedで実際に有効なMeSH Headingsを選択（5〜8個程度）\n\n'
+      + '【検索クエリの形式（重要）】\n'
+      + '以下のルールに厳密に従ってPubMed検索クエリを英語で生成してください：\n'
+      + '1. PICO/PECOの各要素を括弧()でグループ化し、グループ間はANDで結合\n'
+      + '2. 各グループ内ではMeSH用語とフリーテキストをORで結合\n'
+      + '3. MeSH用語には必ず[MeSH]タグを付与（例: "Stroke"[MeSH]）\n'
+      + '4. フリーテキストには[tiab]タグを付与し同義語を含める（例: stroke[tiab] OR cerebrovascular accident[tiab]）\n'
+      + '5. Cが「なし」「特になし」等の場合はCのグループを省略\n\n'
+      + '検索クエリの例：\n'
+      + '("Stroke"[MeSH] OR stroke[tiab] OR "cerebrovascular accident"[tiab]) AND ("Physical Therapy Modalities"[MeSH] OR physiotherapy[tiab] OR rehabilitation[tiab]) AND ("Recovery of Function"[MeSH] OR functional recovery[tiab])';
 
     var schema = {
       type: 'OBJECT',
@@ -524,6 +531,49 @@
       hideProgress();
       if (btn) btn.disabled = false;
       showToast(err.message, 'error');
+    });
+  }
+
+  function regenerateQuery(d) {
+    var regenBtn = document.getElementById('regen-query-btn');
+    if (regenBtn) regenBtn.disabled = true;
+    showProgress(
+      ['PICO/PECOから検索クエリを再構築中...', 'クエリを最適化中...'],
+      [50, 50]
+    );
+    var iLabel = d.type === 'PECO' ? 'E (Exposure)' : 'I (Intervention)';
+    var prompt =
+      'あなたは医学文献検索の専門家です。以下のPICO/PECO要素からPubMed検索クエリを生成してください。\n\n'
+      + 'P: ' + d.p + '\n'
+      + iLabel + ': ' + d.i_or_e + '\n'
+      + 'C: ' + d.c + '\n'
+      + 'O: ' + d.o + '\n\n'
+      + '【検索クエリの形式（重要）】\n'
+      + '以下のルールに厳密に従ってPubMed検索クエリを英語で生成してください：\n'
+      + '1. PICO/PECOの各要素を括弧()でグループ化し、グループ間はANDで結合\n'
+      + '2. 各グループ内ではMeSH用語とフリーテキストをORで結合\n'
+      + '3. MeSH用語には必ず[MeSH]タグを付与（例: "Stroke"[MeSH]）\n'
+      + '4. フリーテキストには[tiab]タグを付与し同義語を含める（例: stroke[tiab] OR cerebrovascular accident[tiab]）\n'
+      + '5. Cが「なし」「特になし」等の場合はCのグループを省略\n\n'
+      + '検索クエリの例：\n'
+      + '("Stroke"[MeSH] OR stroke[tiab] OR "cerebrovascular accident"[tiab]) AND ("Physical Therapy Modalities"[MeSH] OR physiotherapy[tiab] OR rehabilitation[tiab]) AND ("Recovery of Function"[MeSH] OR functional recovery[tiab])\n\n'
+      + '検索クエリのみを返してください。説明は不要です。';
+
+    callGemini(prompt).then(function (text) {
+      completeProgress();
+      var query = text.replace(/^```[\s\S]*?\n/, '').replace(/\n```$/, '').trim();
+      d.search_query = query;
+      var ta = document.getElementById('search-query');
+      if (ta) ta.value = query;
+      setTimeout(function () {
+        hideProgress();
+        if (regenBtn) regenBtn.disabled = false;
+        showToast('検索クエリを再生成しました');
+      }, 400);
+    }).catch(function (err) {
+      hideProgress();
+      if (regenBtn) regenBtn.disabled = false;
+      showToast('クエリ再生成エラー: ' + err.message, 'error');
     });
   }
 
@@ -990,8 +1040,9 @@
     // Search query
     html += '<div class="query-section">';
     html += '<label for="search-query">検索クエリ（編集可）</label>';
-    html += '<textarea id="search-query" rows="3">'
+    html += '<textarea id="search-query" rows="4">'
       + escapeHtml(d.search_query) + '</textarea>';
+    html += '<button id="regen-query-btn" class="btn-regen">PICO/PECOからクエリを再生成</button>';
     html += '</div>';
 
     html += '<button id="search-btn" class="btn-primary">PubMedで検索</button>';
@@ -1018,12 +1069,26 @@
       });
     }
 
-    // Search button
-    document.getElementById('search-btn').addEventListener('click', function () {
+    // Sync PICO fields from form to data
+    function syncPicoFields() {
       d.p       = document.getElementById('pico-p').value.trim();
       d.i_or_e  = document.getElementById('pico-ie').value.trim();
       d.c       = document.getElementById('pico-c').value.trim();
       d.o       = document.getElementById('pico-o').value.trim();
+    }
+
+    // Regenerate query button
+    document.getElementById('regen-query-btn').addEventListener('click', function () {
+      syncPicoFields();
+      if (!d.p && !d.i_or_e && !d.o) {
+        showToast('P, I/E, O のいずれかを入力してください', 'error'); return;
+      }
+      regenerateQuery(d);
+    });
+
+    // Search button
+    document.getElementById('search-btn').addEventListener('click', function () {
+      syncPicoFields();
       d.search_query = document.getElementById('search-query').value.trim();
       if (!d.search_query) {
         showToast('検索クエリを入力してください', 'error'); return;
