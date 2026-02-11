@@ -786,6 +786,7 @@
     html += '<div class="step-title">利用規約に同意する</div>';
     html += '<p class="step-desc">初回のみ「Welcome to AI Studio」画面が表示されます。<br>'
       + '上のチェックボックス（I acknowledge...）に<b>チェック</b>を入れて、右下の<b>「続行」</b>ボタンを押してください。</p>';
+    html += '<img src="img/guide-welcome.png" alt="Welcome to AI Studio画面" class="guide-img">';
     html += '<p class="step-note">下のチェック（メール受信）は任意です。</p>';
     html += '</div></div>';
 
@@ -795,11 +796,15 @@
     html += '<div class="step-title">APIキーをコピー</div>';
     html += '<p class="step-desc">キーの一覧画面が表示されます。</p>';
     html += '<ul class="step-list">';
-    html += '<li>既にキーがある場合（「Default Gemini API Key」など）→ そのキー名を<b>クリック</b></li>';
+    html += '<li>既にキーがある場合 → そのキー名を<b>クリック</b></li>';
+    html += '</ul>';
+    html += '<img src="img/guide-key-list.png" alt="キー一覧画面" class="guide-img guide-img-sm">';
+    html += '<ul class="step-list">';
     html += '<li>キーがない場合 →「<b>APIキーを作成</b>」ボタンで新規作成</li>';
     html += '</ul>';
+    html += '<img src="img/guide-create-btn.png" alt="APIキーを作成ボタン" class="guide-img guide-img-sm">';
     html += '<p class="step-desc">「APIキーの詳細」画面が開くので、右下の<b>「キーをコピー」</b>ボタンを押してください。</p>';
-    html += '<p class="step-desc">キーは <code>AIzaSy...</code> で始まる長い文字列です。</p>';
+    html += '<img src="img/guide-key-detail.png" alt="APIキーの詳細画面" class="guide-img">';
     html += '</div></div>';
 
     html += '<div class="setup-step">';

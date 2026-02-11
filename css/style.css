@@ -159,6 +159,19 @@ a:hover { text-decoration: underline; }
 }
 .step-list li { margin-bottom: 0.25rem; }
 .step-list b { color: #2D3436; }
+/* --- Guide Images --- */
+.guide-img {
+  display: block;
+  width: 100%;
+  max-width: 380px;
+  border-radius: 8px;
+  border: 1px solid #E8E6E3;
+  margin: 0.5rem 0;
+}
+.guide-img-sm {
+  max-width: 220px;
+}
+
 .btn-link {
   display: inline-block;
   margin-top: 0.4rem;
