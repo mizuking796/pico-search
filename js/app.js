@@ -328,32 +328,37 @@
       .then(function (data) {
         var ids = data.esearchresult && data.esearchresult.idlist;
         if (!ids || ids.length === 0) return [];
-        var esummary = PUBMED_BASE + '/esummary.fcgi?db=pubmed&retmode=json'
+
+        // Fetch metadata and abstracts in parallel
+        var summaryUrl = PUBMED_BASE + '/esummary.fcgi?db=pubmed&retmode=json'
           + PUBMED_PARAMS + '&id=' + ids.join(',');
-        return fetch(esummary)
-          .then(function (r) {
-            if (!r.ok) throw new Error('PubMed詳細取得エラー（' + r.status + '）');
-            return r.json();
-          })
-          .then(function (sdata) {
-            var result = sdata.result || {};
-            var list = [];
-            for (var i = 0; i < ids.length; i++) {
-              var doc = result[ids[i]];
-              if (!doc) continue;
-              var authors = (doc.authors || []).map(function (a) { return a.name; });
-              list.push({
-                pmid: ids[i],
-                title: doc.title || '',
-                authors: authors,
-                source: doc.source || '',
-                year: doc.pubdate ? doc.pubdate.split(' ')[0] : '',
-                abstract: null,
-                summary: null
-              });
-            }
-            return list;
-          });
+        var summaryP = fetch(summaryUrl).then(function (r) {
+          if (!r.ok) throw new Error('PubMed詳細取得エラー（' + r.status + '）');
+          return r.json();
+        });
+        var abstractP = fetchAbstracts(ids);
+
+        return Promise.all([summaryP, abstractP]).then(function (results) {
+          var sdata = results[0];
+          var abstracts = results[1];
+          var result = sdata.result || {};
+          var list = [];
+          for (var i = 0; i < ids.length; i++) {
+            var doc = result[ids[i]];
+            if (!doc) continue;
+            var authors = (doc.authors || []).map(function (a) { return a.name; });
+            list.push({
+              pmid: ids[i],
+              title: doc.title || '',
+              authors: authors,
+              source: doc.source || '',
+              year: doc.pubdate ? doc.pubdate.split(' ')[0] : '',
+              abstract: abstracts[ids[i]] || null,
+              summary: null
+            });
+          }
+          return list;
+        });
       });
   }
 
