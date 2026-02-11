@@ -9,26 +9,11 @@
   var PUBMED_BASE  = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
   var MAX_RESULTS  = 20;
 
-  var TRIVIA = [
-    'PubMedには3,700万件以上の論文が収録されています',
-    '"PICO"の概念は1995年にRichardsonらが提唱しました',
-    'MeSH用語は約30,000語が登録されています',
-    '世界で最も引用された医学論文はLowryのタンパク質定量法（1951年）です',
-    'コクランレビューは最も信頼性の高いエビデンスの一つです',
-    'EBMの父と呼ばれるのはDavid Sackett教授です',
-    'PubMedは1996年にNLM（米国国立医学図書館）が公開しました',
-    'RCTは1948年のストレプトマイシン試験が最初とされています',
-    'メタ分析は複数の研究結果を統計的に統合する手法です',
-    'インパクトファクターはガーフィールドが1955年に考案しました',
-    'CONSORT声明はRCTの報告の質を向上させるガイドラインです',
-    'NNT（治療必要数）は臨床効果の分かりやすい指標です',
-    'システマティックレビューはエビデンスピラミッドの頂点に位置します',
-    'PEDroスケールはリハビリ分野のRCT質評価に使われます',
-    'CASPチェックリストは論文の批判的吟味に広く用いられます',
-    'GRADE systemは推奨の強さとエビデンスの質を評価します',
-    'フォレストプロットはメタ分析の結果を視覚化するグラフです',
-    'ファンネルプロットは出版バイアスの検出に用いられます'
-  ];
+  // TRIVIA is loaded from js/trivia.js (global scope, ~600 items)
+  // Fallback if trivia.js fails to load
+  if (typeof TRIVIA === 'undefined' || !TRIVIA.length) {
+    window.TRIVIA = ['PubMedには3,700万件以上の論文が収録されています'];
+  }
 
   var HIGH_IMPACT_JOURNALS = {
     'N Engl J Med': 'NEJM',
@@ -123,6 +108,11 @@
     var d = document.createElement('div');
     d.appendChild(document.createTextNode(s));
     return d.innerHTML;
+  }
+
+  /** escapeHtml + quote escaping for use inside HTML attributes */
+  function escapeAttr(s) {
+    return escapeHtml(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   /* -- Progress overlay -- */
@@ -290,10 +280,13 @@
       }
       return res.json();
     }).then(function (data) {
-      if (!data.candidates || !data.candidates[0]) {
+      var cand = data.candidates && data.candidates[0];
+      var text = cand && cand.content && cand.content.parts
+        && cand.content.parts[0] && cand.content.parts[0].text;
+      if (!text) {
         throw new Error('APIから有効な応答がありませんでした。');
       }
-      return data.candidates[0].content.parts[0].text;
+      return text;
     }).catch(function (err) {
       if (err.message === 'Failed to fetch'
         || (err.name === 'TypeError' && /fetch/i.test(err.message))) {
@@ -419,6 +412,8 @@
       required: ['type', 'p', 'i_or_e', 'c', 'o', 'mesh_terms', 'search_query']
     };
 
+    var btn = document.getElementById('analyze-btn');
+    if (btn) btn.disabled = true;
     callGemini(prompt, schema).then(function (text) {
       updateProgress(1);
       try {
@@ -433,6 +428,7 @@
       setTimeout(function () { hideProgress(); navigate('pico'); }, 400);
     }).catch(function (err) {
       hideProgress();
+      if (btn) btn.disabled = false;
       showToast(err.message, 'error');
     });
   }
@@ -444,6 +440,8 @@
     );
     overallSummary = '';
     _papersWithAbstract = [];
+    var btn = document.getElementById('search-btn');
+    if (btn) btn.disabled = true;
     searchPubMed(query).then(function (list) {
       updateProgress(1);
       papers = list;
@@ -451,6 +449,7 @@
       setTimeout(function () { hideProgress(); navigate('results'); }, 400);
     }).catch(function (err) {
       hideProgress();
+      if (btn) btn.disabled = false;
       showToast('PubMed検索エラー: ' + err.message, 'error');
     });
   }
@@ -505,6 +504,8 @@
   var _papersWithAbstract = [];
 
   function summarizeAll() {
+    var allBtn = document.getElementById('summarize-all-btn');
+    if (allBtn) allBtn.disabled = true;
     showProgress(
       ['アブストラクトを取得中...', 'AIが横断的に分析中...'],
       [30, 70]
@@ -531,8 +532,9 @@
         showToast('アブストラクトのある論文が見つかりませんでした。', 'error');
         return;
       }
-      var parts = _papersWithAbstract.map(function (p, i) {
-        return '[' + (i + 1) + '] ' + p.title + '\n' + p.abstract;
+      var parts = _papersWithAbstract.map(function (p) {
+        var realIdx = papers.indexOf(p);
+        return '[' + (realIdx + 1) + '] ' + p.title + '\n' + p.abstract;
       });
       var prompt =
         '以下の' + _papersWithAbstract.length + '件の医学論文のアブストラクトを横断的に日本語で要約してください。\n'
@@ -551,6 +553,7 @@
       });
     }).catch(function (err) {
       hideProgress();
+      if (allBtn) allBtn.disabled = false;
       showToast('横断要約エラー: ' + err.message, 'error');
     });
   }
@@ -754,7 +757,7 @@
     html += '<div class="pico-field">';
     html += '<div class="pico-field-label"><span class="pico-letter">P</span>';
     html += '<span class="pico-field-name">Patient / Population（対象）</span></div>';
-    html += '<input type="text" id="pico-p" value="' + escapeHtml(d.p) + '">';
+    html += '<input type="text" id="pico-p" value="' + escapeAttr(d.p) + '">';
     html += '</div>';
 
     // I or E
@@ -763,21 +766,21 @@
     html += '<div class="pico-field">';
     html += '<div class="pico-field-label"><span class="pico-letter" id="ie-letter">' + ieLetter + '</span>';
     html += '<span class="pico-field-name" id="ie-name">' + ieName + '</span></div>';
-    html += '<input type="text" id="pico-ie" value="' + escapeHtml(d.i_or_e) + '">';
+    html += '<input type="text" id="pico-ie" value="' + escapeAttr(d.i_or_e) + '">';
     html += '</div>';
 
     // C
     html += '<div class="pico-field">';
     html += '<div class="pico-field-label"><span class="pico-letter">C</span>';
     html += '<span class="pico-field-name">Comparison（比較）</span></div>';
-    html += '<input type="text" id="pico-c" value="' + escapeHtml(d.c) + '">';
+    html += '<input type="text" id="pico-c" value="' + escapeAttr(d.c) + '">';
     html += '</div>';
 
     // O
     html += '<div class="pico-field">';
     html += '<div class="pico-field-label"><span class="pico-letter">O</span>';
     html += '<span class="pico-field-name">Outcome（結果）</span></div>';
-    html += '<input type="text" id="pico-o" value="' + escapeHtml(d.o) + '">';
+    html += '<input type="text" id="pico-o" value="' + escapeAttr(d.o) + '">';
     html += '</div>';
 
     // MeSH terms
@@ -965,16 +968,15 @@
     // Convert \n to <br>
     bodyHtml = bodyHtml.replace(/\n/g, '<br>');
     // Replace [N] with clickable links — map to _papersWithAbstract
+    // [N] maps to papers[N-1] (same numbering as paper cards)
     bodyHtml = bodyHtml.replace(/\[(\d+)\]/g, function (match, num) {
       var idx = parseInt(num, 10) - 1;
-      if (idx >= 0 && idx < _papersWithAbstract.length) {
-        var p = _papersWithAbstract[idx];
-        // Find real index in papers array
-        var realIdx = papers.indexOf(p);
+      if (idx >= 0 && idx < papers.length) {
+        var p = papers[idx];
         return '<a class="cite-ref" href="https://pubmed.ncbi.nlm.nih.gov/'
           + escapeHtml(p.pmid) + '/" target="_blank" rel="noopener" '
-          + 'title="' + escapeHtml(p.title) + '"'
-          + (realIdx >= 0 ? ' data-paper="' + realIdx + '"' : '')
+          + 'title="' + escapeAttr(p.title) + '"'
+          + ' data-paper="' + idx + '"'
           + '>[' + num + ']</a>';
       }
       return match;
@@ -1011,7 +1013,7 @@
     html += '<div class="form-group">';
     html += '<label for="settings-key">APIキー</label>';
     html += '<input type="password" id="settings-key" value="'
-      + escapeHtml(apiKey) + '" autocomplete="off">';
+      + escapeAttr(apiKey) + '" autocomplete="off">';
     html += '</div>';
     html += '<div class="settings-actions">';
     html += '<button id="update-key-btn" class="btn-primary">更新</button>';
@@ -1026,7 +1028,7 @@
     html += '<div class="form-group">';
     html += '<label for="settings-proxy">プロキシURL</label>';
     html += '<input type="url" id="settings-proxy" value="'
-      + escapeHtml(workerUrl)
+      + escapeAttr(workerUrl)
       + '" placeholder="https://pico-proxy.xxx.workers.dev" autocomplete="off">';
     html += '</div>';
     html += '<button id="save-proxy-btn" class="btn-secondary">保存</button>';
