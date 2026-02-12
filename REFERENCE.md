@@ -139,6 +139,12 @@ PubMed検索時にユーザークエリにAND結合で自動付与。`pico_filte
 2. **検索フィルタ** — 発表時期/言語/研究タイプ/対象
 3. **プロキシURL** — Cloudflare Worker（オプション）
 4. **利用規約** — 同意日表示/利用規約再閲覧
+5. **バージョン情報** — 現在バージョン表示 + 更新履歴（details/summary折りたたみ）
+
+## バージョン管理
+- 現在: **v1.2.0**（2026-02-12）
+- 設定画面の最下部に表示。更新履歴は `<details>` で折りたたみ。
+- バージョン更新時は `renderSettings()` 内の `version-current` とリリースリストの先頭に追記する。
 
 ## セキュリティ対策
 - `escapeHtml()`: innerHTML用（`<>&`エスケープ、null/undefinedガード付き）、文字列replace方式
@@ -221,6 +227,14 @@ PubMed検索                 0    248   ← Gemini不使用
 | PERF-4 | 高速化 | `AbortController`で画面遷移時リクエストキャンセル |
 | PERF-5 | 保守性 | 検索クエリ形式ルールの重複プロンプトを定数化 |
 | PERF-6 | 高速化 | Workerレスポンスをストリーミングパススルー |
+
+## 2026-02-12 検索精度改善
+| 修正 | 内容 |
+|------|------|
+| QUERY-1 | `QUERY_FORMAT_RULES`にルール6追加: tiabフレーズは長短両方を含める指示（例: "residential care facility" + "residential care"）。PubMed tiab完全フレーズ一致による重要論文取りこぼし対策 |
+| JOURNAL-1 | `HIGH_IMPACT_JOURNALS`にLancetサブジャーナル5誌追加（Healthy Longev/Neurol/Oncol/Respir Med/Public Health） |
+
+**発見経緯**: Valenzuela et al. (Lancet Healthy Longev 2023, PMID:37182530) が検索でヒットしない報告。原因は施設グループの`"residential care facility"[tiab]`が論文の`"residential care"`にマッチしないため。
 
 ## 更新時の注意
 - **更新時はgit pushまで実施すること**

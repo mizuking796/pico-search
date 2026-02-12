@@ -912,6 +912,54 @@ textarea {
   background: #FDEDEC;
 }
 
+/* --- Version / Release Notes --- */
+.version-current {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #2B8A7E;
+  margin-bottom: 0.5rem;
+}
+.version-date {
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: #636E72;
+}
+.release-notes summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #636E72;
+  padding: 0.25rem 0;
+}
+.release-notes summary:hover {
+  color: #2B8A7E;
+}
+.release-list {
+  margin-top: 0.75rem;
+}
+.release-list dt {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #2D3436;
+  margin-top: 1rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid #E8E6E3;
+}
+.release-list dt:first-child {
+  margin-top: 0;
+}
+.release-list dd {
+  margin: 0.5rem 0 0 0;
+}
+.release-list dd ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+.release-list dd li {
+  font-size: 0.82rem;
+  color: #555;
+  line-height: 1.6;
+}
+
 /* --- Responsive --- */
 @media (max-width: 600px) {
   .screen { padding: 0 0.75rem 1.5rem; }

@@ -1446,6 +1446,46 @@
     html += '<button id="view-terms-btn" class="btn-secondary btn-small">利用規約を表示</button>';
     html += '</div>';
 
+    // Version & Release Notes
+    html += '<div class="settings-section">';
+    html += '<h3>バージョン情報</h3>';
+    html += '<p class="version-current">v1.2.0 <span class="version-date">（2026-02-12）</span></p>';
+    html += '<details class="release-notes">';
+    html += '<summary>更新履歴</summary>';
+    html += '<dl class="release-list">';
+    html += '<dt>v1.2.0 <span class="version-date">2026-02-12</span></dt>';
+    html += '<dd><ul>'
+      + '<li>検索精度改善: [tiab]部分フレーズルールを追加し重要論文の取りこぼしを軽減</li>'
+      + '<li>Lancetサブジャーナル5誌をジャーナルバッジに追加</li>'
+      + '<li>包括レビュー修正（バグ5件・セキュリティ4件・パフォーマンス6件）</li>'
+      + '<li>CSP（Content Security Policy）追加</li>'
+      + '<li>画面遷移時にAPIリクエストを自動キャンセル（AbortController）</li>'
+      + '<li>Worker CORS制限を強化</li>'
+      + '</ul></dd>';
+    html += '<dt>v1.1.0 <span class="version-date">2026-02-11</span></dt>';
+    html += '<dd><ul>'
+      + '<li>利用規約・同意フローを追加</li>'
+      + '<li>セットアップガイドにスクリーンショットを追加</li>'
+      + '<li>検索フィルタ機能を追加（発表時期/言語/研究タイプ/対象）</li>'
+      + '<li>横断要約にポイントまとめ（5行）+ 引用番号を追加</li>'
+      + '<li>API残りクォータのリアルタイム表示</li>'
+      + '<li>検索クエリ再生成ボタンを追加</li>'
+      + '<li>論文カードにジャーナルバッジ・研究タイプバッジを追加</li>'
+      + '<li>医学豆知識600個のプログレス表示</li>'
+      + '<li>PubMed検索を並列化（ESummary + EFetch同時取得）</li>'
+      + '</ul></dd>';
+    html += '<dt>v1.0.0 <span class="version-date">2026-02-11</span></dt>';
+    html += '<dd><ul>'
+      + '<li>初回リリース</li>'
+      + '<li>日本語の臨床疑問からPICO/PECO自動分解</li>'
+      + '<li>PubMed検索クエリの自動生成</li>'
+      + '<li>論文の個別要約・横断要約</li>'
+      + '<li>BYOK（Gemini APIキー持ち込み）方式</li>'
+      + '</ul></dd>';
+    html += '</dl>';
+    html += '</details>';
+    html += '</div>';
+
     html += '</div></div>';
 
     app.innerHTML = html;
