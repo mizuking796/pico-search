@@ -20,6 +20,11 @@
     'N Engl J Med': 'NEJM',
     'Lancet': 'Lancet',
     'The Lancet': 'Lancet',
+    'Lancet Healthy Longev': 'Lancet',
+    'Lancet Neurol': 'Lancet',
+    'Lancet Oncol': 'Lancet',
+    'Lancet Respir Med': 'Lancet',
+    'Lancet Public Health': 'Lancet',
     'JAMA': 'JAMA',
     'BMJ': 'BMJ',
     'Ann Intern Med': 'AIM',
@@ -58,10 +63,35 @@
   var picoData      = null;      // {type,p,i_or_e,c,o,mesh_terms,search_query}
   var papers        = [];        // [{pmid,title,authors,source,year,abstract,summary}]
   var overallSummary = '';
-  var prevScreen    = '';
+  var navStack      = [];
 
   // Search filters (persisted in localStorage)
   var searchFilters = { dateRange: '', lang: '', studyType: '', species: '' };
+
+  // Active request abort controller (cancel on navigation)
+  var _activeAbort = null;
+
+  function abortActiveRequest() {
+    if (_activeAbort) { _activeAbort.abort(); _activeAbort = null; }
+  }
+
+  function newAbortSignal() {
+    abortActiveRequest();
+    _activeAbort = new AbortController();
+    return _activeAbort.signal;
+  }
+
+  var QUERY_FORMAT_RULES =
+    '【検索クエリの形式（重要）】\n'
+    + '以下のルールに厳密に従ってPubMed検索クエリを英語で生成してください：\n'
+    + '1. PICO/PECOの各要素を括弧()でグループ化し、グループ間はANDで結合\n'
+    + '2. 各グループ内ではMeSH用語とフリーテキストをORで結合\n'
+    + '3. MeSH用語には必ず[MeSH]タグを付与（例: "Stroke"[MeSH]）\n'
+    + '4. フリーテキストには[tiab]タグを付与し同義語を含める（例: stroke[tiab] OR cerebrovascular accident[tiab]）\n'
+    + '5. Cが「なし」「特になし」等の場合はCのグループを省略\n'
+    + '6. [tiab]フレーズは長い表現と短い表現の両方を含める（例: "residential care facility"[tiab] と "residential care"[tiab] の両方、"long-term care facility"[tiab] と "long-term care"[tiab] の両方）。PubMedの[tiab]は完全フレーズ一致のため、短い部分フレーズも必ず含めないと重要な論文を取りこぼす\n\n'
+    + '検索クエリの例：\n'
+    + '("Stroke"[MeSH] OR stroke[tiab] OR "cerebrovascular accident"[tiab]) AND ("Physical Therapy Modalities"[MeSH] OR physiotherapy[tiab] OR rehabilitation[tiab]) AND ("Recovery of Function"[MeSH] OR functional recovery[tiab])';
 
   var app = document.getElementById('app');
 
@@ -113,8 +143,15 @@
   }
 
   function navigate(s) {
-    prevScreen = screen;
+    abortActiveRequest();
+    navStack.push(screen);
     screen = s;
+    render();
+  }
+
+  function goBack(fallback) {
+    abortActiveRequest();
+    screen = navStack.length > 0 ? navStack.pop() : (fallback || 'question');
     render();
   }
 
@@ -122,9 +159,8 @@
      Utilities
      ============================================================ */
   function escapeHtml(s) {
-    var d = document.createElement('div');
-    d.appendChild(document.createTextNode(s));
-    return d.innerHTML;
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   /** escapeHtml + quote escaping for use inside HTML attributes */
@@ -272,13 +308,14 @@
   }
 
   function getUsageToday() {
+    var today = getResetDate();
     var stored = localStorage.getItem('pico_usage');
-    if (!stored) return { date: getResetDate(), count: 0 };
+    if (!stored) return { date: today, count: 0 };
     try {
       var data = JSON.parse(stored);
-      if (data.date !== getResetDate()) return { date: getResetDate(), count: 0 };
+      if (data.date !== today) return { date: today, count: 0 };
       return data;
-    } catch (e) { return { date: getResetDate(), count: 0 }; }
+    } catch (e) { return { date: today, count: 0 }; }
   }
 
   function incrementUsage() {
@@ -333,7 +370,7 @@
       + '?key=' + encodeURIComponent(apiKey);
   }
 
-  function callGemini(prompt, schema) {
+  function callGemini(prompt, schema, signal) {
     var body = {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {}
@@ -342,11 +379,14 @@
       body.generationConfig.responseMimeType = 'application/json';
       body.generationConfig.responseSchema = schema;
     }
-    return fetch(geminiEndpoint('generateContent'), {
+    var opts = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
-    }).then(function (res) {
+    };
+    if (signal) opts.signal = signal;
+    return fetch(geminiEndpoint('generateContent'), opts
+    ).then(function (res) {
       syncQuotaFromHeaders(res.headers);
       if (!res.ok) {
         return res.json().catch(function () { return {}; }).then(function (err) {
@@ -520,7 +560,6 @@
   function analyzePico(question) {
     papers = [];
     overallSummary = '';
-    _papersWithAbstract = [];
     showProgress(
       ['AIが臨床疑問を分析中...', 'PICO/PECOに分解中...'],
       [50, 50]
@@ -532,15 +571,7 @@
       + '- 介入研究ならPICO（Intervention）、観察研究ならPECO（Exposure）を選択\n'
       + '- 各フィールド（P, I/E, C, O）は日本語で簡潔に記述\n'
       + '- MeSH用語は英語で、PubMedで実際に有効なMeSH Headingsを選択（5〜8個程度）\n\n'
-      + '【検索クエリの形式（重要）】\n'
-      + '以下のルールに厳密に従ってPubMed検索クエリを英語で生成してください：\n'
-      + '1. PICO/PECOの各要素を括弧()でグループ化し、グループ間はANDで結合\n'
-      + '2. 各グループ内ではMeSH用語とフリーテキストをORで結合\n'
-      + '3. MeSH用語には必ず[MeSH]タグを付与（例: "Stroke"[MeSH]）\n'
-      + '4. フリーテキストには[tiab]タグを付与し同義語を含める（例: stroke[tiab] OR cerebrovascular accident[tiab]）\n'
-      + '5. Cが「なし」「特になし」等の場合はCのグループを省略\n\n'
-      + '検索クエリの例：\n'
-      + '("Stroke"[MeSH] OR stroke[tiab] OR "cerebrovascular accident"[tiab]) AND ("Physical Therapy Modalities"[MeSH] OR physiotherapy[tiab] OR rehabilitation[tiab]) AND ("Recovery of Function"[MeSH] OR functional recovery[tiab])';
+      + QUERY_FORMAT_RULES;
 
     var schema = {
       type: 'OBJECT',
@@ -558,7 +589,8 @@
 
     var btn = document.getElementById('analyze-btn');
     if (btn) btn.disabled = true;
-    callGemini(prompt, schema).then(function (text) {
+    var signal = newAbortSignal();
+    callGemini(prompt, schema, signal).then(function (text) {
       updateProgress(1);
       try {
         picoData = JSON.parse(text);
@@ -571,6 +603,7 @@
       completeProgress();
       setTimeout(function () { hideProgress(); navigate('pico'); }, 400);
     }).catch(function (err) {
+      if (err.name === 'AbortError') return;
       hideProgress();
       if (btn) btn.disabled = false;
       showToast(err.message, 'error');
@@ -591,18 +624,11 @@
       + iLabel + ': ' + d.i_or_e + '\n'
       + 'C: ' + d.c + '\n'
       + 'O: ' + d.o + '\n\n'
-      + '【検索クエリの形式（重要）】\n'
-      + '以下のルールに厳密に従ってPubMed検索クエリを英語で生成してください：\n'
-      + '1. PICO/PECOの各要素を括弧()でグループ化し、グループ間はANDで結合\n'
-      + '2. 各グループ内ではMeSH用語とフリーテキストをORで結合\n'
-      + '3. MeSH用語には必ず[MeSH]タグを付与（例: "Stroke"[MeSH]）\n'
-      + '4. フリーテキストには[tiab]タグを付与し同義語を含める（例: stroke[tiab] OR cerebrovascular accident[tiab]）\n'
-      + '5. Cが「なし」「特になし」等の場合はCのグループを省略\n\n'
-      + '検索クエリの例：\n'
-      + '("Stroke"[MeSH] OR stroke[tiab] OR "cerebrovascular accident"[tiab]) AND ("Physical Therapy Modalities"[MeSH] OR physiotherapy[tiab] OR rehabilitation[tiab]) AND ("Recovery of Function"[MeSH] OR functional recovery[tiab])\n\n'
+      + QUERY_FORMAT_RULES + '\n\n'
       + '検索クエリのみを返してください。説明は不要です。';
 
-    callGemini(prompt).then(function (text) {
+    var signal = newAbortSignal();
+    callGemini(prompt, null, signal).then(function (text) {
       completeProgress();
       var query = text.replace(/^```[\s\S]*?\n/, '').replace(/\n```$/, '').trim();
       d.search_query = query;
@@ -611,9 +637,10 @@
       setTimeout(function () {
         hideProgress();
         if (regenBtn) regenBtn.disabled = false;
-        showToast('検索クエリを再生成しました');
+        showToast('検索クエリを再生成しました', 'success');
       }, 400);
     }).catch(function (err) {
+      if (err.name === 'AbortError') return;
       hideProgress();
       if (regenBtn) regenBtn.disabled = false;
       showToast('クエリ再生成エラー: ' + err.message, 'error');
@@ -626,7 +653,6 @@
       [40, 60]
     );
     overallSummary = '';
-    _papersWithAbstract = [];
     var btn = document.getElementById('search-btn');
     if (btn) btn.disabled = true;
     searchPubMed(query).then(function (list) {
@@ -661,10 +687,11 @@
         + '以下の点を含めて要約してください：\n'
         + '- 研究の目的\n- 方法の概要\n- 主要な結果\n- 臨床的意義';
 
-      callGemini(prompt).then(function (text) {
+      callGemini(prompt, null, newAbortSignal()).then(function (text) {
         paper.summary = text;
         renderPaperCard(idx);
       }).catch(function (err) {
+        if (err.name === 'AbortError') return;
         showToast('要約エラー: ' + err.message, 'error');
         if (btn) { btn.disabled = false; btn.textContent = '日本語で要約'; }
       });
@@ -688,8 +715,6 @@
     }
   }
 
-  var _papersWithAbstract = [];
-
   function summarizeAll() {
     var allBtn = document.getElementById('summarize-all-btn');
     if (allBtn) allBtn.disabled = true;
@@ -707,25 +732,25 @@
       : Promise.resolve({});
 
     fetchPromise.then(function (abstracts) {
+      var paperByPmid = {};
+      for (var j = 0; j < papers.length; j++) paperByPmid[papers[j].pmid] = papers[j];
       for (var pmid in abstracts) {
-        for (var j = 0; j < papers.length; j++) {
-          if (papers[j].pmid === pmid) papers[j].abstract = abstracts[pmid];
-        }
+        if (paperByPmid[pmid]) paperByPmid[pmid].abstract = abstracts[pmid];
       }
       updateProgress(1);
-      _papersWithAbstract = papers.filter(function (p) { return p.abstract; });
-      if (_papersWithAbstract.length === 0) {
+      var withAbstract = papers.filter(function (p) { return p.abstract; });
+      if (withAbstract.length === 0) {
         hideProgress();
         if (allBtn) allBtn.disabled = false;
         showToast('アブストラクトのある論文が見つかりませんでした。', 'error');
         return;
       }
-      var parts = _papersWithAbstract.map(function (p) {
+      var parts = withAbstract.map(function (p) {
         var realIdx = papers.indexOf(p);
         return '[' + (realIdx + 1) + '] ' + p.title + '\n' + p.abstract;
       });
       var prompt =
-        '以下の' + _papersWithAbstract.length + '件の医学論文のアブストラクトを横断的に日本語で要約してください。\n'
+        '以下の' + withAbstract.length + '件の医学論文のアブストラクトを横断的に日本語で要約してください。\n'
         + '医学教育を十分に積んでいない医療従事者にも理解できるよう記述してください。\n\n'
         + parts.join('\n\n') + '\n\n'
         + '【形式の指示】\n'
@@ -737,12 +762,17 @@
         + '重要：本文中で根拠となる論文を [1][2] のように番号で引用してください。'
         + '例えば「〜という結果が報告されている[1][3]」のように記述します。';
 
-      return callGemini(prompt).then(function (text) {
+      return callGemini(prompt, null, newAbortSignal()).then(function (text) {
         completeProgress();
         overallSummary = text;
-        setTimeout(function () { hideProgress(); renderOverallSummary(); }, 400);
+        setTimeout(function () {
+          hideProgress();
+          if (allBtn) allBtn.disabled = false;
+          renderOverallSummary();
+        }, 400);
       });
     }).catch(function (err) {
+      if (err.name === 'AbortError') return;
       hideProgress();
       if (allBtn) allBtn.disabled = false;
       showToast('横断要約エラー: ' + err.message, 'error');
@@ -821,7 +851,7 @@
 
     if (alreadyConsented) {
       document.getElementById('consent-back-btn').addEventListener('click', function () {
-        navigate(prevScreen || 'settings');
+        goBack('settings');
       });
     } else {
       var cb = document.getElementById('consent-cb');
@@ -1424,7 +1454,7 @@
     var backBtn = app.querySelector('.btn-back');
     if (backBtn) {
       backBtn.addEventListener('click', function () {
-        navigate(prevScreen || 'question');
+        goBack('question');
       });
     }
 

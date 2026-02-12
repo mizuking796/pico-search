@@ -88,6 +88,7 @@ pico-search/
   - PICO要素ごとに括弧()でグループ化、AND結合
   - MeSH用語に`[MeSH]`タグ必須
   - フリーテキストに`[tiab]`タグ + 同義語展開
+  - 長短両方のフレーズを含める（例: "residential care facility" + "residential care"）— tiabは完全フレーズ一致のため短い部分フレーズも必須
   - Cが「なし」の場合はCグループ省略
   - 具体的な検索式の例をプロンプトに含む
 - **クエリ再生成ボタン**: PICO編集後に「PICO/PECOからクエリを再生成」で検索式だけ再構築（Gemini 1回消費）
@@ -109,7 +110,7 @@ PubMed検索時にユーザークエリにAND結合で自動付与。`pico_filte
 
 ### 論文カード強化
 - **論文番号**: `[1]` `[2]` 表示（横断要約の引用番号と対応）
-- **ジャーナルバッジ**: NEJM/Lancet/JAMA/Cochrane等16誌を金色pillで表示
+- **ジャーナルバッジ**: NEJM/Lancet(+5サブジャーナル)/JAMA/Cochrane等21誌を金色pillで表示
 - **研究タイプ自動検出**: タイトルからメタ分析/RCT/コホート等を判定し青バッジ表示
 
 ### 横断要約（ポイントまとめ + 引用）
@@ -140,13 +141,18 @@ PubMed検索時にユーザークエリにAND結合で自動付与。`pico_filte
 4. **利用規約** — 同意日表示/利用規約再閲覧
 
 ## セキュリティ対策
-- `escapeHtml()`: innerHTML用（`<>&`エスケープ）
+- `escapeHtml()`: innerHTML用（`<>&`エスケープ、null/undefinedガード付き）、文字列replace方式
 - `escapeAttr()`: HTML属性用（`<>&"'`エスケープ、XSS防止）
+- **CSP（Content Security Policy）**: index.htmlにmetaタグで設定。script-src/connect-srcを制限
 - Gemini応答の安全なプロパティアクセス（各階層でnullチェック）
 - PubMed API全3エンドポイントで `r.ok` チェック
 - ボタン連打防止（分析/検索/全体要約/クエリ再生成を処理中disabled化）
+- **AbortController**: 画面遷移時に進行中のAPIリクエストをキャンセル（stale応答防止）
 - Toast通知に `role="alert"`（アクセシビリティ）
 - TRIVIA未定義時のフォールバック
+- **Worker CORS制限**: `mizuking796.github.io` + localhost のみ許可（`*`廃止）
+- **Worker HTTPメソッド制限**: GET/POST/OPTIONS以外は405拒否
+- **Workerレート制限ヘッダー透過**: `x-ratelimit-remaining-requests`等をCORS Exposeして通過
 
 ## localStorage キー
 - `pico_api_key`: Gemini APIキー
@@ -182,6 +188,39 @@ PubMed検索                 0    248   ← Gemini不使用
 | PICO → 全体要約 → 全20本 | 22 | 11テーマ |
 
 ※ gemini-2.5-flash無料枠。太平洋時間0時リセット（日本時間17時）
+
+## 内部設計メモ
+
+### ナビゲーション
+- `navStack`（配列）で画面遷移履歴を管理。`goBack(fallback)`でpop。
+- 画面遷移時に`abortActiveRequest()`で進行中のGemini APIリクエストをキャンセル。
+
+### プロンプトテンプレート
+- 検索クエリ形式ルール（5項目+例）は `QUERY_FORMAT_RULES` 定数に一元化。
+- `analyzePico()` と `regenerateQuery()` が共有参照。
+
+### Worker設計
+- CORS: オリジン制限（`ALLOWED_ORIGIN` 定数）。localhost開発も許可。
+- レスポンスボディはストリーミングパススルー（`res.body`直接転送）。
+- レート制限ヘッダーを`Access-Control-Expose-Headers`で公開。
+
+## 2026-02-12 包括レビュー修正ログ
+| ID | 種別 | 修正内容 |
+|----|------|---------|
+| BUG-1 | バグ | `showToast`再生成成功時のタイプを`'success'`に修正 |
+| BUG-2 | バグ | `prevScreen`(1段)→`navStack`(配列)+`goBack()`で戻る連鎖修正 |
+| BUG-3 | バグ | Workerがレート制限ヘッダーを透過するよう修正 |
+| BUG-4 | バグ | `escapeHtml(null/undefined)`→空文字列を返すよう修正 |
+| BUG-5 | バグ | `summarizeAll`成功後にボタン再有効化 |
+| SEC-1 | セキュリティ | Worker HTTPメソッド制限（GET/POST/OPTIONSのみ） |
+| SEC-3 | セキュリティ | Worker CORS `*`→オリジン制限 |
+| SEC-4 | セキュリティ | CSP metaタグ追加（index.html） |
+| PERF-1 | 高速化 | `getResetDate()`呼び出しを1回にキャッシュ |
+| PERF-2 | 高速化 | `escapeHtml` DOM生成→文字列replace方式 |
+| PERF-3 | 高速化 | `summarizeAll` PMID検索をO(n)Map化 |
+| PERF-4 | 高速化 | `AbortController`で画面遷移時リクエストキャンセル |
+| PERF-5 | 保守性 | 検索クエリ形式ルールの重複プロンプトを定数化 |
+| PERF-6 | 高速化 | Workerレスポンスをストリーミングパススルー |
 
 ## 更新時の注意
 - **更新時はgit pushまで実施すること**
